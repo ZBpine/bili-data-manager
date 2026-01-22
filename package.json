@@ -1,0 +1,26 @@
+{
+  "name": "bili-data-manager",
+  "version": "1.0.0",
+  "description": "userscript library for Bilibili danmaku manager",
+  "author": "ZBpine",
+  "license": "MIT",
+  "dependencies": {
+    "blueimp-md5": "^2.19.0",
+    "protobufjs": "^7.5.4"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "protobufjs-cli": "^1.2.0",
+    "scriptcat-webpack-plugin": "^1.3.2",
+    "webpack": "^5.104.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "scripts": {
+    "build": "webpack --mode=production",
+    "build:lib": "webpack --mode=production --config-name library",
+    "build:lib-bundle": "webpack --mode=production --config-name library-bundle",
+    "build:test": "webpack --mode=production --config-name test-script",
+    "serve": "http-server . -p 8000 -c-1",
+    "proto": "pbjs -t static-module -w es6 -o src/proto/dm.js src/proto/dm.proto --no-beautify --no-comments --no-create --no-verify --no-delimited --no-encode"
+  }
+}
