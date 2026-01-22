@@ -18,7 +18,7 @@
   "scripts": {
     "build": "webpack --mode=production",
     "build:lib": "webpack --mode=production --config-name library",
-    "build:lib-bundle": "webpack --mode=production --config-name library-bundle",
+    "build:lib-bd": "webpack --mode=production --config-name library-bundle",
     "build:test": "webpack --mode=production --config-name test-script",
     "serve": "http-server . -p 8000 -c-1",
     "proto": "pbjs -t static-module -w es6 -o src/proto/dm.js src/proto/dm.proto --no-beautify --no-comments --no-create --no-verify --no-delimited --no-encode"
