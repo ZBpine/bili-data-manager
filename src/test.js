@@ -9,7 +9,7 @@ const BDM = BiliDataManager.create({
     isLog: true,
 });
 
-const { BiliArchive, BiliDanmaku, logger } = BDM;
+const { BiliArchive, BiliDanmaku, BiliComment, logger } = BDM;
 
 unsafeWindow.BiliDataManager = BiliDataManager;
 unsafeWindow.BDM = BDM;
@@ -32,7 +32,7 @@ unsafeWindow.BDM.getDm = async (url = location.href) => {
 unsafeWindow.BDM.getCmt = async (url = location.href) => {
     const arcMgr = new BiliArchive();
     const info = await arcMgr.getData(url);
-    const cmtMgr = new BDM.BiliComment(info);
+    const cmtMgr = new BiliComment(info);
     await cmtMgr.getReply();
     cmtMgr.show = function () {
         createBiliCommentUI(this);

@@ -37,9 +37,18 @@ class BiliCmtApi {
         });
         return res?.data;
     }
+    async getNote({ cvid }) {
+        const res = await this.client.request({
+            url: "https://api.bilibili.com/x/note/publish/info",
+            params: { cvid },
+            responseType: "json",
+            desc: `获取笔记 ${cvid}`,
+        });
+        return res?.data;
+    }
 }
 
-class ReplyTree {
+export class ReplyTree {
     constructor() {
         this.clear();
     }
@@ -79,10 +88,6 @@ class ReplyTree {
             for (const sub of reply.replies) this._add(sub);
         }
     }
-    addList(list) {
-        if (!Array.isArray(list)) return;
-        for (const r of list) this.add(r);
-    }
     _ensureNode(rpid, init) {
         if (!this.nodes[rpid]) {
             this.nodes[rpid] = {
@@ -94,7 +99,7 @@ class ReplyTree {
                 level: 0,              // 0:占位 1:根评论 2:二级评论 3:三级评论 4:三级以上评论
                 isPlaceholder: true,   // 占位
                 isLinked: false,       // 是否已链接
-                childrenSet: new Set(),
+                childrenSet: null,
                 dialogSet: null,       // 二级 才有
                 subSet: null,          // 根 才有
                 ...init,
@@ -122,6 +127,7 @@ class ReplyTree {
             if (node.level === 3) init = { root, dialog, parent: root, level: 2 };
             else if (node.level > 3) init = { root, dialog, parent: dialog, level: 3 };
             const parentNode = this._ensureNode(parent, init);
+            parentNode.childrenSet ??= new Set();
             parentNode.childrenSet.add(rpid);
             if (parentNode.isPlaceholder) this._linkNode(parentNode);
         }
@@ -166,8 +172,8 @@ class ReplyTree {
         if (!this.nodes || Object.keys(this.nodes).length === 0) {
             this.buildNodes();
         }
-        const nodes = this.nodes;
         const dict = this.dict;
+        const nodes = this.nodes;
 
         const getTime = (id) => {
             const r = dict?.[id];
@@ -272,9 +278,22 @@ export class BiliComment {
         this.replyTree = new ReplyTree();
         this.replyCount = 0;
 
+        this.noteDict = {};
+        this.noteSet = new Set();
+
         this.sleepTime = {
             long: { base: 2000, jitter: 2000 },
             short: { base: 500, jitter: 500 },
+        }
+    }
+    addList(list) {
+        if (!Array.isArray(list)) return;
+        for (const r of list) {
+            this.replyTree.add(r);
+            const cvid = this.replyTree.pickId(r, 'note_cvid');
+            if (cvid && cvid !== "0") {
+                this.noteSet.add(cvid);
+            }
         }
     }
     setData(data) {
@@ -283,10 +302,19 @@ export class BiliComment {
         if (topReplies.length) {
             this.data.top_comment_list = topReplies;
             this.replyTree.setTop(topReplies);
-            this.replyTree.addList(topReplies);
+            this.addList(topReplies);
         }
         const replies = data.comment_list || [];
-        this.replyTree.addList(replies);
+        this.addList(replies);
+
+        const notes = data.note_list || [];
+        for (const note of notes) {
+            if (note.cvid) {
+                const key = String(note.cvid);
+                this.noteDict[key] = note;
+            }
+        }
+
         this.buildData();
     }
     clearData() {
@@ -298,6 +326,23 @@ export class BiliComment {
         this.replyTree.buildNodes();
         this.data.comment_list = Object.values(this.replyTree.dict);
         this.replyCount = this.data.comment_list.length;
+
+        const notes = Object.values(this.noteDict);
+        if (notes.length) {
+            this.data.note_list = notes;
+        }
+    }
+    async getNote(noteIds = []) {
+        noteIds.forEach(cvid => this.noteSet.add(String(cvid)));
+        for (const cvid of this.noteSet) {
+            if (cvid in this.noteDict) continue;
+            if (cvid === "0") continue;
+            const note = await this.api.getNote({ cvid });
+            if (note) {
+                this.noteDict[cvid] = note;
+            }
+        }
+        this.noteSet.clear();
     }
     async getMainPage(mode = 2, offset = "") {
         const { type, oid } = this.info;
@@ -317,9 +362,9 @@ export class BiliComment {
         if (topReplies.length) {
             this.data.top_comment_list = topReplies;
             this.replyTree.setTop(topReplies);
-            this.replyTree.addList(topReplies);
+            this.addList(topReplies);
         }
-        this.replyTree.addList(replies);
+        this.addList(replies);
         this.buildData();
 
         const next = pageData?.cursor?.pagination_reply?.next_offset;
@@ -331,10 +376,10 @@ export class BiliComment {
             pageData,
         };
     }
-    async getMain({ mode = 2, within = -1, sub = false } = {}) {
+    async getMain({ mode = 2, within = -1, sub = false, note = true, onProgress } = {}) {
         const desc = "获取评论主列表";
 
-        let stopCtime = null; 
+        let stopCtime = null;
         if (within < 0) {
             stopCtime = null;
         } else if (within === 0) {
@@ -356,12 +401,15 @@ export class BiliComment {
         this.logger.time(desc + " 总耗时");
         const startCount = this.replyCount;
 
-        let offset ="";
+        let offset = "";
         let page = 0;
         while (true) {
             try {
                 const { nextOffset, pageData } = await this.getMainPage(mode, offset);
                 page++;
+                if (typeof onProgress === 'function') {
+                    await onProgress(this.replyCount);
+                }
 
                 if (stopCtime !== null) {
                     const list = pageData?.replies || [];
@@ -381,6 +429,7 @@ export class BiliComment {
                     beforeFn: (d) => this.logger.log(`${desc} 第${page + 1}页，延时 ${d} 毫秒`)
                 });
 
+                if (note) await this.getNote();
                 if (sub) await this.getSub();
 
                 if (!nextOffset) break;
@@ -424,7 +473,7 @@ export class BiliComment {
                     const data = await this.api.getReply({ type, oid, root, pn, ps: 20 });
                     const replies = data?.replies || [];
                     if (!replies.length) break;
-                    this.replyTree.addList(replies);
+                    this.addList(replies);
 
                     const page = data?.page;
                     if (!page) break;
@@ -459,6 +508,7 @@ export class BiliComment {
     async getReply() {
         await this.getMain({ sub: true });
         await this.getSub();
+        await this.getNote();
     }
     async getCount() {
         const { type, oid } = this.info;

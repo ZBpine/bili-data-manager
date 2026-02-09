@@ -68,6 +68,7 @@ export class BiliArchive {
             this._pickHandler(data);
             Object.assign(this.data, data);
             this.info = this._handler.extract(this.data);
+            this.info.fetchtime = this.data.fetchtime ?? 0;
             return this.info;
         } catch (e) {
             this.logger.error("BiliArchive setData error:", e);

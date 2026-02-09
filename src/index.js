@@ -11,7 +11,7 @@ function create(config) {
     if (!httpRequest) throw new Error("httpRequest is required");
     name = name || "BiliDataManager";
     isLog = isLog !== false;
-    loggerColor = loggerColor || "#01a1d6";
+    loggerColor = loggerColor || "#00a0d8";
 
     const logger = new Proxy(console, {
         get(target, prop) {

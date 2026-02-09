@@ -120,8 +120,8 @@ const STYLE_CONTENT = `
 .bcv-rail::after {
     content: "";
     position: absolute;
-    top: -20px;
-    bottom: 0;
+    top: -10px;
+    bottom: -10px;
     right: 0;
     width: 1px;
     background: #e3e5e7;

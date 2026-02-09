@@ -1,7 +1,7 @@
 {
   "name": "bili-data-manager",
   "version": "1.0.0",
-  "description": "userscript library for Bilibili danmaku manager",
+  "description": "userscript library for Bilibili data manager",
   "author": "ZBpine",
   "license": "MIT",
   "dependencies": {

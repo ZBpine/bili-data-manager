@@ -12,7 +12,7 @@
 // @grant       unsafeWindow
 // @connect     api.bilibili.com
 // @require     https://update.greasyfork.org/scripts/563577/1739686/BiliDataManager.js
-// @require     http://localhost:8000/dist/bili-data-manager.min.js?1769074726391
+// @require     http://localhost:8000/dist/bili-data-manager.min.js?1770302390610
 // @license     MIT
 // ==/UserScript==
 
@@ -142,8 +142,8 @@ const STYLE_CONTENT = `
 .bcv-rail::after {
     content: "";
     position: absolute;
-    top: -20px;
-    bottom: 0;
+    top: -10px;
+    bottom: -10px;
     right: 0;
     width: 1px;
     background: #e3e5e7;
@@ -1705,7 +1705,7 @@ const BDM = BiliDataManager.create({
     isLog: true,
 });
 
-const { BiliArchive, BiliDanmaku, logger } = BDM;
+const { BiliArchive, BiliDanmaku, BiliComment, logger } = BDM;
 
 unsafeWindow.BiliDataManager = BiliDataManager;
 unsafeWindow.BDM = BDM;
@@ -1728,7 +1728,7 @@ unsafeWindow.BDM.getDm = async (url = location.href) => {
 unsafeWindow.BDM.getCmt = async (url = location.href) => {
     const arcMgr = new BiliArchive();
     const info = await arcMgr.getData(url);
-    const cmtMgr = new BDM.BiliComment(info);
+    const cmtMgr = new BiliComment(info);
     await cmtMgr.getReply();
     cmtMgr.show = function () {
         createBiliCommentUI(this);

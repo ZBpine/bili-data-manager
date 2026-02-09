@@ -3304,6 +3304,7 @@
                     this._pickHandler(data);
                     Object.assign(this.data, data);
                     this.info = this._handler.extract(this.data);
+                    this.info.fetchtime = this.data.fetchtime ?? 0;
                     return this.info;
                 } catch (e) {
                     this.logger.error("BiliArchive setData error:", e);
@@ -6900,6 +6901,17 @@
                 });
                 return res?.data;
             }
+            async getNote({cvid}) {
+                const res = await this.client.request({
+                    url: "https://api.bilibili.com/x/note/publish/info",
+                    params: {
+                        cvid
+                    },
+                    responseType: "json",
+                    desc: `获取笔记 ${cvid}`
+                });
+                return res?.data;
+            }
         }
         class ReplyTree {
             constructor() {
@@ -6943,10 +6955,6 @@
                     for (const sub of reply.replies) this._add(sub);
                 }
             }
-            addList(list) {
-                if (!Array.isArray(list)) return;
-                for (const r of list) this.add(r);
-            }
             _ensureNode(rpid, init) {
                 if (!this.nodes[rpid]) {
                     this.nodes[rpid] = {
@@ -6961,7 +6969,7 @@
                         // 占位
                         isLinked: false,
                         // 是否已链接
-                        childrenSet: new Set,
+                        childrenSet: null,
                         dialogSet: null,
                         // 二级 才有
                         subSet: null,
@@ -7009,6 +7017,7 @@
                         level: 3
                     };
                     const parentNode = this._ensureNode(parent, init);
+                    parentNode.childrenSet ??= new Set;
                     parentNode.childrenSet.add(rpid);
                     if (parentNode.isPlaceholder) this._linkNode(parentNode);
                 }
@@ -7051,8 +7060,8 @@
                 if (!this.nodes || Object.keys(this.nodes).length === 0) {
                     this.buildNodes();
                 }
-                const nodes = this.nodes;
                 const dict = this.dict;
+                const nodes = this.nodes;
                 const getTime = id => {
                     const r = dict?.[id];
                     const num = Number(r?.ctime ?? 0);
@@ -7149,6 +7158,8 @@
                 this.data = {};
                 this.replyTree = new ReplyTree;
                 this.replyCount = 0;
+                this.noteDict = {};
+                this.noteSet = new Set;
                 this.sleepTime = {
                     long: {
                         base: 2e3,
@@ -7160,16 +7171,33 @@
                     }
                 };
             }
+            addList(list) {
+                if (!Array.isArray(list)) return;
+                for (const r of list) {
+                    this.replyTree.add(r);
+                    const cvid = this.replyTree.pickId(r, "note_cvid");
+                    if (cvid && cvid !== "0") {
+                        this.noteSet.add(cvid);
+                    }
+                }
+            }
             setData(data) {
                 this.clearData();
                 const topReplies = data.top_comment_list || [];
                 if (topReplies.length) {
                     this.data.top_comment_list = topReplies;
                     this.replyTree.setTop(topReplies);
-                    this.replyTree.addList(topReplies);
+                    this.addList(topReplies);
                 }
                 const replies = data.comment_list || [];
-                this.replyTree.addList(replies);
+                this.addList(replies);
+                const notes = data.note_list || [];
+                for (const note of notes) {
+                    if (note.cvid) {
+                        const key = String(note.cvid);
+                        this.noteDict[key] = note;
+                    }
+                }
                 this.buildData();
             }
             clearData() {
@@ -7181,6 +7209,24 @@
                 this.replyTree.buildNodes();
                 this.data.comment_list = Object.values(this.replyTree.dict);
                 this.replyCount = this.data.comment_list.length;
+                const notes = Object.values(this.noteDict);
+                if (notes.length) {
+                    this.data.note_list = notes;
+                }
+            }
+            async getNote(noteIds = []) {
+                noteIds.forEach(cvid => this.noteSet.add(String(cvid)));
+                for (const cvid of this.noteSet) {
+                    if (cvid in this.noteDict) continue;
+                    if (cvid === "0") continue;
+                    const note = await this.api.getNote({
+                        cvid
+                    });
+                    if (note) {
+                        this.noteDict[cvid] = note;
+                    }
+                }
+                this.noteSet.clear();
             }
             async getMainPage(mode = 2, offset = "") {
                 const {type, oid} = this.info;
@@ -7202,9 +7248,9 @@
                 if (topReplies.length) {
                     this.data.top_comment_list = topReplies;
                     this.replyTree.setTop(topReplies);
-                    this.replyTree.addList(topReplies);
+                    this.addList(topReplies);
                 }
-                this.replyTree.addList(replies);
+                this.addList(replies);
                 this.buildData();
                 const next = pageData?.cursor?.pagination_reply?.next_offset;
                 const nextOffset = next ? String(next) : "";
@@ -7214,7 +7260,7 @@
                     pageData
                 };
             }
-            async getMain({mode = 2, within = -1, sub = false} = {}) {
+            async getMain({mode = 2, within = -1, sub = false, note = true, onProgress} = {}) {
                 const desc = "获取评论主列表";
                 let stopCtime = null;
                 if (within < 0) {
@@ -7242,6 +7288,9 @@
                     try {
                         const {nextOffset, pageData} = await this.getMainPage(mode, offset);
                         page++;
+                        if (typeof onProgress === "function") {
+                            await onProgress(this.replyCount);
+                        }
                         if (stopCtime !== null) {
                             const list = pageData?.replies || [];
                             let hitOlder = false;
@@ -7258,6 +7307,7 @@
                             ...this.sleepTime?.long,
                             beforeFn: d => this.logger.log(`${desc} 第${page + 1}页，延时 ${d} 毫秒`)
                         });
+                        if (note) await this.getNote();
                         if (sub) await this.getSub();
                         if (!nextOffset) break;
                         offset = nextOffset;
@@ -7305,7 +7355,7 @@
                             });
                             const replies = data?.replies || [];
                             if (!replies.length) break;
-                            this.replyTree.addList(replies);
+                            this.addList(replies);
                             const page = data?.page;
                             if (!page) break;
                             const num = Number(page.num || pn);
@@ -7340,6 +7390,7 @@
                     sub: true
                 });
                 await this.getSub();
+                await this.getNote();
             }
             async getCount() {
                 const {type, oid} = this.info;
