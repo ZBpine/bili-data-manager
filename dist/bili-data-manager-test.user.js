@@ -11,7 +11,7 @@
 // @grant       unsafeWindow
 // @connect     api.bilibili.com
 // @require     https://update.greasyfork.org/scripts/563577/1739686/BiliDataManager.js
-// @require     http://localhost:8000/dist/bili-data-manager.min.js?1772961151211
+// @require     http://localhost:8000/dist/bili-data-manager.min.js?1772974001671
 // @license     MIT
 // ==/UserScript==
 

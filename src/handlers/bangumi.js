@@ -14,7 +14,7 @@ export const bangumiHandler = {
 
         const kind = m[1].toLowerCase(); // ep | ss
         const num = parseInt(m[2], 10);
-        const idKey = (kind === 'ss' ? 'season_id' : 'ep_id');
+        const idKey = kind === "ss" ? "season_id" : "ep_id";
         return {
             [idKey]: num,
             id: `bangumi/play/${kind}${num}`,
@@ -23,12 +23,13 @@ export const bangumiHandler = {
     },
     async fetch(ctx, idObj) {
         let { ep_id, season_id } = idObj;
-        if (!ep_id && !season_id) throw new Error("Bangumi fetch: no ep_id or season_id");
+        if (!ep_id && !season_id)
+            throw new Error("Bangumi fetch: no ep_id or season_id");
         const seasonParams = ep_id ? { ep_id } : { season_id };
         const seasonRes = await ctx.client.request({
-            url: 'https://api.bilibili.com/pgc/view/web/season',
+            url: "https://api.bilibili.com/pgc/view/web/season",
             params: seasonParams,
-            desc: `获取剧集明细 ${ep_id ? 'ep' + ep_id : 'ss' + season_id}`
+            desc: `获取剧集明细 ${ep_id ? "ep" + ep_id : "ss" + season_id}`,
         });
         const seasonView = seasonRes.result || {};
         if (!ep_id) {
@@ -39,19 +40,23 @@ export const bangumiHandler = {
         }
         if (ep_id) {
             const episodeRes = await ctx.client.request({
-                url: 'https://api.bilibili.com/pgc/season/episode/web/info',
+                url: "https://api.bilibili.com/pgc/season/episode/web/info",
                 params: { ep_id },
-                desc: `获取剧集信息 ${ep_id}`
+                desc: `获取剧集信息 ${ep_id}`,
             });
             const episodeInfo = episodeRes.data || {};
-            return { ...idObj, bangumi_season_view: seasonView, bangumi_episode_info: episodeInfo };
+            return {
+                ...idObj,
+                bangumi_season_view: seasonView,
+                bangumi_episode_info: episodeInfo,
+            };
         } else {
             return { ...idObj, bangumi_season_view: seasonView };
         }
     },
     extract(data) {
         const info = {};
-        const seasonView = data?.bangumi_season_view;
+        const seasonView = data?.bangumi_season_view ?? data?.episodeData;
         if (seasonView) {
             const season_id = seasonView.season_id || data.season_id;
             Object.assign(info, {
@@ -61,11 +66,13 @@ export const bangumiHandler = {
                 title: seasonView.season_title,
                 desc: seasonView.evaluate,
                 cover: seasonView.cover,
-                pubtime: Math.floor(Date.parse(seasonView.publish?.pub_time) / 1000),
+                pubtime: Math.floor(
+                    Date.parse(seasonView.publish?.pub_time) / 1000,
+                ),
                 owner: {
                     mid: seasonView.up_info?.mid,
                     name: seasonView.up_info?.uname,
-                    face: seasonView.up_info?.avatar
+                    face: seasonView.up_info?.avatar,
                 },
                 stat: {
                     view: seasonView.stat?.views,
@@ -74,29 +81,34 @@ export const bangumiHandler = {
                     favorite: seasonView.stat?.favorites,
                     share: seasonView.stat?.share,
                     danmaku: seasonView.stat?.danmakus,
-                    reply: seasonView.stat?.reply
-                }
+                    reply: seasonView.stat?.reply,
+                },
             });
-            const ep_id = data.bangumi_episode_info?.episode_id || data.ep_id;
+            const episodeInfo = data.bangumi_episode_info ?? data.episodeInfo;
+            const ep_id = episodeInfo?.episode_id || data.ep_id;
             if (ep_id) {
                 let ep = null;
                 let sectionTitle = null;
                 if (Array.isArray(seasonView.episodes)) {
-                    ep = seasonView.episodes.find(e => e.ep_id === ep_id || e.id === ep_id);
+                    ep = seasonView.episodes.find(
+                        (e) => e.ep_id === ep_id || e.id === ep_id,
+                    );
                     if (ep) {
-                        sectionTitle = '正片';
+                        sectionTitle = "正片";
                     }
                 }
                 if (!ep && Array.isArray(seasonView.section)) {
                     for (const section of seasonView.section) {
-                        ep = section.episodes?.find(e => e.ep_id === ep_id || e.id === ep_id);
+                        ep = section.episodes?.find(
+                            (e) => e.ep_id === ep_id || e.id === ep_id,
+                        );
                         if (ep) {
                             sectionTitle = section.title;
                             break;
                         }
                     }
                 }
-                if (!ep) throw new Error('Bangumi extract: ep not found');
+                if (!ep) throw new Error("Bangumi extract: ep not found");
                 Object.assign(info, {
                     id: `bangumi/play/ep${ep_id}`,
                     ep_id: ep_id,
@@ -109,13 +121,12 @@ export const bangumiHandler = {
                     cover: ep.cover,
                     pubtime: ep.pub_time,
                 });
-                const episodeInfo = data.bangumi_episode_info;
                 if (episodeInfo) {
                     Object.assign(info, {
                         owner: {
                             mid: episodeInfo.related_up?.[0]?.mid,
                             name: episodeInfo.related_up?.[0]?.uname,
-                            face: episodeInfo.related_up?.[0]?.avatar
+                            face: episodeInfo.related_up?.[0]?.avatar,
                         },
                         stat: {
                             view: episodeInfo.stat.view,
@@ -124,12 +135,12 @@ export const bangumiHandler = {
                             favorite: episodeInfo.stat.favorite,
                             share: episodeInfo.stat.share,
                             danmaku: episodeInfo.stat.dm,
-                            comment: episodeInfo.stat.reply
-                        }
+                            comment: episodeInfo.stat.reply,
+                        },
                     });
                     if (episodeInfo.related_up?.length > 1) {
                         info.staff = [];
-                        episodeInfo.related_up.forEach(stf => {
+                        episodeInfo.related_up.forEach((stf) => {
                             info.staff.push({
                                 mid: stf.mid,
                                 name: stf.uname,
@@ -141,8 +152,8 @@ export const bangumiHandler = {
             }
             info.cover = httptoHttps(info.cover);
             info.owner.face = httptoHttps(info.owner.face);
-            info.url = 'https://www.bilibili.com/' + info.id;
+            info.url = "https://www.bilibili.com/" + info.id;
         }
         return info;
-    }
-}
+    },
+};

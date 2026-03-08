@@ -2,7 +2,7 @@
 // @name        BiliDataManager
 // @namespace   https://github.com/ZBpine/bili-data-manager
 // @description BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。
-// @version     1.0.0
+// @version     1.0.3
 // @author      ZBpine
 // @icon        https://www.bilibili.com/favicon.ico
 // @license     MIT
@@ -2822,7 +2822,7 @@
             },
             extract(data) {
                 const info = {};
-                const videoView = data?.video_view;
+                const videoView = data?.video_view ?? data?.videoData;
                 if (videoView) {
                     const bvid = videoView.bvid || data.bvid;
                     Object.assign(info, {
@@ -2895,9 +2895,9 @@
                 });
             }
         };
- // ./src/handlers/bangumi.js
+        // ./src/handlers/bangumi.js
         // src/handlers/bangumi.js
-                const bangumiHandler = {
+        const bangumiHandler = {
             name: "bangumi",
             keys: [ "bangumi_season_view", "bangumi_episode_info" ],
             match(url) {
@@ -2959,7 +2959,7 @@
             },
             extract(data) {
                 const info = {};
-                const seasonView = data?.bangumi_season_view;
+                const seasonView = data?.bangumi_season_view ?? data?.episodeData;
                 if (seasonView) {
                     const season_id = seasonView.season_id || data.season_id;
                     Object.assign(info, {
@@ -2985,7 +2985,8 @@
                             reply: seasonView.stat?.reply
                         }
                     });
-                    const ep_id = data.bangumi_episode_info?.episode_id || data.ep_id;
+                    const episodeInfo = data.bangumi_episode_info ?? data.episodeInfo;
+                    const ep_id = episodeInfo?.episode_id || data.ep_id;
                     if (ep_id) {
                         let ep = null;
                         let sectionTitle = null;
@@ -3017,7 +3018,6 @@
                             cover: ep.cover,
                             pubtime: ep.pub_time
                         });
-                        const episodeInfo = data.bangumi_episode_info;
                         if (episodeInfo) {
                             Object.assign(info, {
                                 owner: {
@@ -3054,9 +3054,9 @@
                 return info;
             }
         };
- // ./src/handlers/dynamic.js
+        // ./src/handlers/dynamic.js
         // src/handlers/dynamic.js
-                const dynamicHandler = {
+        const dynamicHandler = {
             name: "dynamic",
             keys: [ "dynamic_detail" ],
             match(url) {
@@ -6639,7 +6639,7 @@
             setData(data) {
                 this.clearData();
                 if (data.danmaku_view) this.data.danmaku_view = data.danmaku_view;
-                const danmaku_list = data.danmaku_list;
+                const danmaku_list = data.danmaku_list ?? data.danmakuData ?? data.danmakuList;
                 if (danmaku_list?.length) {
                     danmaku_list.forEach(dm => this.addDm(dm));
                 }
