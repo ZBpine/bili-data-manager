@@ -5,10 +5,14 @@ import { handler, handlerList } from "./handlers/handler.js";
 export class BiliArchive {
     constructor(ctx, handlers) {
         this.ctx = ctx;
-        this.logger = ctx.logger || new Proxy({}, { get: () => () => { } });
+        this.logger = ctx.logger || new Proxy({}, { get: () => () => {} });
 
         this.handlers = [];
-        handlers = Array.isArray(handlers) ? handlers : (handlers ? [handlers] : handlerList);
+        handlers = Array.isArray(handlers)
+            ? handlers
+            : handlers
+              ? [handlers]
+              : handlerList;
         for (const h of handlers) {
             if (typeof h === "string" && handler[h]) h = handler[h];
             if (h && h.name) this.handlers.push(h);
@@ -19,17 +23,31 @@ export class BiliArchive {
         this._handler = null;
     }
     static parseUrl(url, handlers) {
-        handlers = handlers || [];
-        const h = handlers.find((x) => x.match(url));
-        return h ? h.parse(url) : {};
+        handlers = Array.isArray(handlers)
+            ? handlers
+            : handlers
+              ? [handlers]
+              : handlerList;
+        for (const h of handlers) {
+            if (typeof h === "string" && handler[h]) h = handler[h];
+            if (h && h.match) {
+                if (h.match(url)) return h.parse(url);
+            }
+        }
+        return {};
     }
     _pickHandler(input) {
         let handler = null;
 
         if (typeof input === "object" && input !== null) {
             handler = this.handlers.find((h) => {
-                return h.keys && Array.isArray(h.keys)
-                    && h.keys.some(key => Object.prototype.hasOwnProperty.call(input, key));
+                return (
+                    h.keys &&
+                    Array.isArray(h.keys) &&
+                    h.keys.some((key) =>
+                        Object.prototype.hasOwnProperty.call(input, key),
+                    )
+                );
             });
         }
         if (!handler) {

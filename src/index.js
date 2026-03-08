@@ -4,6 +4,7 @@ import { BiliClient } from "./BiliClient.js";
 import { BiliArchive } from "./BiliArchive.js";
 import { BiliDanmaku } from "./BiliDanmaku.js";
 import { BiliComment } from "./BiliComment.js";
+import { BiliUser } from "./BiliUser.js";
 import { handler } from "./handlers/handler.js";
 
 function create(config) {
@@ -16,10 +17,10 @@ function create(config) {
     const logger = new Proxy(console, {
         get(target, prop) {
             if (!isLog) {
-                return () => { };
+                return () => {};
             }
             const original = target[prop];
-            if (typeof original !== 'function') return original;
+            if (typeof original !== "function") return original;
             // 需要添加样式前缀的方法列表
             const styledMethods = ["log", "warn", "error", "info", "debug"];
 
@@ -30,12 +31,12 @@ function create(config) {
                         target,
                         `%c${name}`,
                         `background:${loggerColor};color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold;`,
-                        ...args
+                        ...args,
                     )();
                 };
             }
             return original.bind(target);
-        }
+        },
     });
     const client = new BiliClient(httpRequest, logger);
     const ctx = { client, logger };
@@ -55,6 +56,11 @@ function create(config) {
             super(ctx, info);
         }
     };
+    const BoundUser = class extends BiliUser {
+        constructor(mid) {
+            super(ctx, mid);
+        }
+    };
 
     return {
         name,
@@ -63,14 +69,8 @@ function create(config) {
         BiliArchive: BoundArchive,
         BiliDanmaku: BoundDanmaku,
         BiliComment: BoundComment,
+        BiliUser: BoundUser,
     };
 }
 
-export {
-    BiliClient,
-    BiliArchive,
-    BiliDanmaku,
-    BiliComment,
-    handler,
-    create,
-};
+export { BiliClient, BiliArchive, BiliDanmaku, BiliComment, handler, create };

@@ -77,6 +77,7 @@ arcMgr.setData(data);
 | **async** getData(url) | Function | 获取稿件数据 | url只填BV□□□□或ep□□□□也行，ep的话优先匹配为番剧，除非加上cheese字符，或者前面handlers别带bangumi |
 |       clearData        | Function | 清空稿件数据 |        |
 |     setData(data)      | Function | 设置稿件数据 | 传上面存的data  |
+|   **Static** parseUrl  | Function |   解析url   | 返回id,url,其他（见info）  |
 
 ----
 

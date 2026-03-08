@@ -2693,6 +2693,16 @@
                     throw err;
                 });
             }
+            async getLoginInfo() {
+                res = await this.request({
+                    url: "https://api.bilibili.com/x/web-interface/nav",
+                    desc: "获取登录信息"
+                });
+                return res.data || {};
+            }
+            async isLogin() {
+                return !!(await this.getLoginInfo()).isLogin;
+            }
         }
         // ./src/utils.js
         // src/utils.js
@@ -3258,9 +3268,14 @@
                 this._handler = null;
             }
             static parseUrl(url, handlers) {
-                handlers = handlers || [];
-                const h = handlers.find(x => x.match(url));
-                return h ? h.parse(url) : {};
+                handlers = Array.isArray(handlers) ? handlers : handlers ? [ handlers ] : handlerList;
+                for (const h of handlers) {
+                    if (typeof h === "string" && handler[h]) h = handler[h];
+                    if (h && h.match) {
+                        if (h.match(url)) return h.parse(url);
+                    }
+                }
+                return {};
             }
             _pickHandler(input) {
                 let handler = null;
@@ -6874,7 +6889,7 @@
                 });
                 return res?.data;
             }
-            async getReply({type, oid, root, pn = 1, ps = 10}) {
+            async getReply(type, oid, root, pn = 1, ps = 10) {
                 const res = await this.client.request({
                     url: "https://api.bilibili.com/x/v2/reply/reply",
                     params: {
@@ -6889,7 +6904,7 @@
                 });
                 return res?.data || {};
             }
-            async getCount({type, oid}) {
+            async getCount(type, oid) {
                 const res = await this.client.request({
                     url: "https://api.bilibili.com/x/v2/reply/count",
                     params: {
@@ -6901,7 +6916,7 @@
                 });
                 return res?.data;
             }
-            async getNote({cvid}) {
+            async getNote(cvid) {
                 const res = await this.client.request({
                     url: "https://api.bilibili.com/x/note/publish/info",
                     params: {
@@ -7219,9 +7234,7 @@
                 for (const cvid of this.noteSet) {
                     if (cvid in this.noteDict) continue;
                     if (cvid === "0") continue;
-                    const note = await this.api.getNote({
-                        cvid
-                    });
+                    const note = await this.api.getNote(cvid);
                     if (note) {
                         this.noteDict[cvid] = note;
                     }
@@ -7344,22 +7357,17 @@
                     this.logger.time(desc + " 总耗时");
                     const rootObj = this.replyTree.dict[root];
                     let pn = 1;
+                    const ps = 20;
                     while (true) {
                         try {
-                            const data = await this.api.getReply({
-                                type,
-                                oid,
-                                root,
-                                pn,
-                                ps: 20
-                            });
+                            const data = await this.api.getReply(type, oid, root, pn, ps);
                             const replies = data?.replies || [];
                             if (!replies.length) break;
                             this.addList(replies);
                             const page = data?.page;
                             if (!page) break;
                             const num = Number(page.num || pn);
-                            const size = Number(page.size || 20);
+                            const size = Number(page.size || ps);
                             const count = Number(page.count || 0);
                             if (rootObj) rootObj.rcount = count;
                             if (num * size >= count) break;
@@ -7395,9 +7403,107 @@
             async getCount() {
                 const {type, oid} = this.info;
                 if (!type || !oid) throw new Error("获取评论数量失败：未找到 type/oid，请检查 info");
-                return this.api.getCount({
-                    type,
-                    oid
+                return this.api.getCount(type, oid);
+            }
+        }
+        // ./src/BiliUser.js
+        // src/BiliUser.js
+        class BiliUserApi {
+            constructor(client) {
+                this.client = client;
+            }
+            async getCard(mid, photo = true) {
+                const res = await this.client.request({
+                    url: "https://api.bilibili.com/x/web-interface/card",
+                    params: {
+                        mid,
+                        photo
+                    },
+                    responseType: "json",
+                    desc: `获取用户名片信息 ${mid}`
+                });
+                return res.data || {};
+            }
+            async getInfo(mid) {
+                const res = await this.client.request({
+                    url: "https://api.bilibili.com/x/space/wbi/acc/info",
+                    params: {
+                        mid
+                    },
+                    responseType: "json",
+                    sign: true,
+                    desc: `获取用户空间详细信息 ${mid}`
+                });
+                return res.data || {};
+            }
+            /**
+     * 获取用户空间视频列表
+     * @param {number} mid 用户mid 必要
+     * @param {string} order 排序方式
+     * @param {string} keyword 关键词
+     * @param {number} pn 页码
+     * @param {number} ps 每页数量
+     * @param {number} tid 视频分区
+     */            async search(params) {
+                const res = await this.client.request({
+                    url: "https://api.bilibili.com/x/space/wbi/arc/search",
+                    params,
+                    responseType: "json",
+                    sign: true,
+                    desc: `搜索用户空间视频 ${params.mid}`
+                });
+                return res.data || {};
+            }
+            /**
+     * 获取用户空间视频列表
+     * @param {number} mid 用户mid 必要
+     * @param {string} keywords 关键词 必要 可空
+     * @param {number} ps 每页数量
+     * @param {number} pn 页码
+     * @param {number} tid 视频分区
+     * @param {string} orderby 排序方式
+     * @param {number} series_id 系列id
+     */            async seriesSearch(params) {
+                const res = await this.client.request({
+                    url: "https://api.bilibili.com/x/series/recArchivesByKeywords",
+                    params,
+                    responseType: "json",
+                    desc: `搜索用户空间系列视频 ${params.mid}`
+                });
+                return res.data || {};
+            }
+        }
+        class BiliUser {
+            static parseUrl(url) {
+                const mid = url.match(/\/(\d+)/)?.[1];
+                return mid;
+            }
+            constructor(ctx, mid) {
+                this.ctx = ctx;
+                this.mid = mid;
+                this.client = ctx.client;
+                this.logger = ctx.logger || new Proxy({}, {
+                    get: () => () => {}
+                });
+                this.api = new BiliUserApi(this.client);
+            }
+            async getArchives() {
+                const mid = this.mid;
+                if (!mid) {
+                    return;
+                }
+                return await this.api.search({
+                    mid
+                });
+            }
+            async getSeriesArchives() {
+                const mid = this.mid;
+                if (!mid) {
+                    return;
+                }
+                return await this.api.seriesSearch({
+                    mid,
+                    keywords: ""
                 });
             }
         }
@@ -7408,7 +7514,7 @@
             if (!httpRequest) throw new Error("httpRequest is required");
             name = name || "BiliDataManager";
             isLog = isLog !== false;
-            loggerColor = loggerColor || "#01a1d6";
+            loggerColor = loggerColor || "#00a0d8";
             const logger = new Proxy(console, {
                 get(target, prop) {
                     if (!isLog) {
@@ -7444,13 +7550,19 @@
                     super(ctx, info);
                 }
             };
+            const BoundUser = class extends BiliUser {
+                constructor(mid) {
+                    super(ctx, mid);
+                }
+            };
             return {
                 name,
                 client,
                 logger,
                 BiliArchive: BoundArchive,
                 BiliDanmaku: BoundDanmaku,
-                BiliComment: BoundComment
+                BiliComment: BoundComment,
+                BiliUser: BoundUser
             };
         }
     })();

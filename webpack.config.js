@@ -1,6 +1,6 @@
 // webpack.config.js
 const path = require("path");
-const TerserPlugin = require('terser-webpack-plugin');
+const TerserPlugin = require("terser-webpack-plugin");
 const ScriptCatWebpackPlugin = require("scriptcat-webpack-plugin");
 
 const getlibConfig = (name, filename, optimization) => {
@@ -25,7 +25,8 @@ const getlibConfig = (name, filename, optimization) => {
                 name: "BiliDataManager",
                 namespace: "https://github.com/ZBpine/bili-data-manager",
                 version: "1.0.0",
-                description: "BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。",
+                description:
+                    "BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。",
                 author: "ZBpine",
                 metadata: {
                     icon: "https://www.bilibili.com/favicon.ico",
@@ -33,25 +34,31 @@ const getlibConfig = (name, filename, optimization) => {
                 },
             }),
         ],
-    }
+    };
 };
-const lib_min = getlibConfig("library", "bili-data-manager.min.js", { minimize: true });
-const lib_bundle = getlibConfig("library-bundle", "bili-data-manager.bundle.js", {
-    minimize: true, // 开启“最小化”过程，但我们要自定义这个过程
-    minimizer: [
-        new TerserPlugin({
-            terserOptions: {
-                compress: false,   // 关闭代码压缩（保留空格、换行）
-                mangle: false,     // 关键：禁止修改变量名和函数名
-                output: {
-                    beautify: true,  // 关键：强制格式化代码，使其美观可读
-                    comments: true,  // 保留注释
-                },
-            },
-            extractComments: false, // 不将注释提取到单独文件
-        }),
-    ],
+const lib_min = getlibConfig("library", "bili-data-manager.min.js", {
+    minimize: true,
 });
+const lib_bundle = getlibConfig(
+    "library-bundle",
+    "bili-data-manager.bundle.js",
+    {
+        minimize: true, // 开启“最小化”过程，但我们要自定义这个过程
+        minimizer: [
+            new TerserPlugin({
+                terserOptions: {
+                    compress: false, // 关闭代码压缩（保留空格、换行）
+                    mangle: false, // 关键：禁止修改变量名和函数名
+                    output: {
+                        beautify: true, // 关键：强制格式化代码，使其美观可读
+                        comments: true, // 保留注释
+                    },
+                },
+                extractComments: false, // 不将注释提取到单独文件
+            }),
+        ],
+    },
+);
 
 module.exports = [
     lib_min,
@@ -77,19 +84,19 @@ module.exports = [
                 metadata: {
                     icon: "https://www.bilibili.com/favicon.ico",
                     match: [
-                        "https://www.bilibili.com/*",
-                        "https://t.bilibili.com/*",
+                        "https://*.bilibili.com/*",
                         "https://www.baidu.com/*",
                     ],
                     grant: ["GM_xmlhttpRequest", "unsafeWindow"],
                     connect: ["api.bilibili.com"],
                     require: [
                         "https://update.greasyfork.org/scripts/563577/1739686/BiliDataManager.js",
-                        "http://localhost:8000/dist/bili-data-manager.min.js?" + Date.now(),
+                        "http://localhost:8000/dist/bili-data-manager.min.js?" +
+                            Date.now(),
                     ],
                     license: "MIT",
                 },
             }),
         ],
-    }
+    },
 ];
