@@ -136,6 +136,10 @@ export class BiliDanmaku {
     setData(data) {
         this.clearData();
         if (data.danmaku_view) this.data.danmaku_view = data.danmaku_view;
+        if (data.commandDms) {
+            this.data.danmaku_view ??= {};
+            this.data.danmaku_view.commandDms = data.commandDms;
+        }
         const danmaku_list =
             data.danmaku_list ?? data.danmakuData ?? data.danmakuList;
         if (danmaku_list?.length) {

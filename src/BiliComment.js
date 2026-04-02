@@ -365,6 +365,7 @@ export class BiliComment {
             }
         }
         this.noteSet.clear();
+        this.buildData();
     }
     async getMainPage(mode = 2, offset = "") {
         const { type, oid } = this.info;

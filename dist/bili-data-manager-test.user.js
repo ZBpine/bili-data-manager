@@ -10,8 +10,8 @@
 // @grant       GM_xmlhttpRequest
 // @grant       unsafeWindow
 // @connect     api.bilibili.com
-// @require     https://update.greasyfork.org/scripts/563577/1739686/BiliDataManager.js
-// @require     http://localhost:8000/dist/bili-data-manager.min.js?1772974001671
+// @require     https://cdn.jsdelivr.net/gh/ZBpine/bili-data-manager/dist/bili-data-manager.min.js
+// @require     http://localhost:8000/dist/bili-data-manager.min.js?1775138574014
 // @license     MIT
 // ==/UserScript==
 
@@ -1734,6 +1734,15 @@ unsafeWindow.BDM.getCmt = async (url = location.href) => {
     };
     logger.log(cmtMgr);
     return { arc: arcMgr, cmt: cmtMgr };
+};
+unsafeWindow.BDM.getAll = async (url = location.href) => {
+    const arcMgr = new BDM.BiliArchive();
+    const info = await arcMgr.getData(url);
+    const dmMgr = new BDM.BiliDanmaku(info);
+    await dmMgr.getDmPb();
+    const cmtMgr = new BDM.BiliComment(info);
+    await cmtMgr.getReply();
+    return { ...arcMgr.data, ...dmMgr.data, ...cmtMgr.data };
 };
 unsafeWindow.BDM.getUser = (url = location.href) => {
     const mid = BDM.BiliUser.parseUrl(url);

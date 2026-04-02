@@ -90,7 +90,7 @@ module.exports = [
                     grant: ["GM_xmlhttpRequest", "unsafeWindow"],
                     connect: ["api.bilibili.com"],
                     require: [
-                        "https://update.greasyfork.org/scripts/563577/1739686/BiliDataManager.js",
+                        "https://cdn.jsdelivr.net/gh/ZBpine/bili-data-manager/dist/bili-data-manager.min.js",
                         "http://localhost:8000/dist/bili-data-manager.min.js?" +
                             Date.now(),
                     ],

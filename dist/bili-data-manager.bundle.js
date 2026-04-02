@@ -3259,7 +3259,7 @@
                 });
                 this.handlers = [];
                 handlers = Array.isArray(handlers) ? handlers : handlers ? [ handlers ] : handlerList;
-                for (const h of handlers) {
+                for (let h of handlers) {
                     if (typeof h === "string" && handler[h]) h = handler[h];
                     if (h && h.name) this.handlers.push(h);
                 }
@@ -3269,7 +3269,7 @@
             }
             static parseUrl(url, handlers) {
                 handlers = Array.isArray(handlers) ? handlers : handlers ? [ handlers ] : handlerList;
-                for (const h of handlers) {
+                for (let h of handlers) {
                     if (typeof h === "string" && handler[h]) h = handler[h];
                     if (h && h.match) {
                         if (h.match(url)) return h.parse(url);
@@ -6639,6 +6639,10 @@
             setData(data) {
                 this.clearData();
                 if (data.danmaku_view) this.data.danmaku_view = data.danmaku_view;
+                if (data.commandDms) {
+                    this.data.danmaku_view ??= {};
+                    this.data.danmaku_view.commandDms = data.commandDms;
+                }
                 const danmaku_list = data.danmaku_list ?? data.danmakuData ?? data.danmakuList;
                 if (danmaku_list?.length) {
                     danmaku_list.forEach(dm => this.addDm(dm));
@@ -7240,6 +7244,7 @@
                     }
                 }
                 this.noteSet.clear();
+                this.buildData();
             }
             async getMainPage(mode = 2, offset = "") {
                 const {type, oid} = this.info;
@@ -7408,6 +7413,148 @@
         }
         // ./src/BiliUser.js
         // src/BiliUser.js
+        const midHash = (() => {
+            const CRCPOLYNOMIAL = 3988292384;
+            let crcTable = null;
+            const ensureCRCTable = () => {
+                if (crcTable) {
+                    return crcTable;
+                }
+                crcTable = new Array(256);
+                for (let i = 0; i < 256; i++) {
+                    let crcreg = i;
+                    for (let j = 0; j < 8; j++) {
+                        if ((crcreg & 1) !== 0) {
+                            crcreg = CRCPOLYNOMIAL ^ crcreg >>> 1;
+                        } else {
+                            crcreg >>>= 1;
+                        }
+                    }
+                    crcTable[i] = crcreg;
+                }
+                return crcTable;
+            };
+            const crc32 = input => {
+                const table = ensureCRCTable();
+                const text = typeof input === "string" ? input : String(input);
+                let crcstart = 4294967295;
+                for (let i = 0; i < text.length; i++) {
+                    const index = (crcstart ^ text.charCodeAt(i)) & 255;
+                    crcstart = crcstart >>> 8 ^ table[index];
+                }
+                return crcstart;
+            };
+            const crc32LastIndex = input => {
+                const table = ensureCRCTable();
+                const text = typeof input === "string" ? input : String(input);
+                let crcstart = 4294967295;
+                let index = 0;
+                for (let i = 0; i < text.length; i++) {
+                    index = (crcstart ^ text.charCodeAt(i)) & 255;
+                    crcstart = crcstart >>> 8 ^ table[index];
+                }
+                return index;
+            };
+            const getCRCIndex = t => {
+                const table = ensureCRCTable();
+                for (let i = 0; i < 256; i++) {
+                    if (table[i] >>> 24 === t) {
+                        return i;
+                    }
+                }
+                return -1;
+            };
+            const deepCheck = (i, index) => {
+                const table = ensureCRCTable();
+                let hash = crc32(i);
+                let tc = hash & 255 ^ index[2];
+                if (tc < 48 || tc > 57) {
+                    return [ 0 ];
+                }
+                let str = String(tc - 48);
+                hash = table[index[2]] ^ hash >>> 8;
+                tc = hash & 255 ^ index[1];
+                if (tc < 48 || tc > 57) {
+                    return [ 0 ];
+                }
+                str += String(tc - 48);
+                hash = table[index[1]] ^ hash >>> 8;
+                tc = hash & 255 ^ index[0];
+                if (tc < 48 || tc > 57) {
+                    return [ 0 ];
+                }
+                str += String(tc - 48);
+                return [ 1, str ];
+            };
+            const normalizeHash = hashStr => {
+                if (hashStr == null) {
+                    return "";
+                }
+                let normalized = String(hashStr).trim().toLowerCase();
+                if (normalized.startsWith("0x")) {
+                    normalized = normalized.slice(2);
+                }
+                if (!/^[0-9a-f]{1,8}$/.test(normalized)) {
+                    return "";
+                }
+                return normalized;
+            };
+            const midToHash = mid => {
+                if (mid == null) {
+                    return "";
+                }
+                const input = String(mid).trim();
+                if (!input) {
+                    return "";
+                }
+                const table = ensureCRCTable();
+                let crc = 4294967295;
+                for (let i = 0; i < input.length; i++) {
+                    const byte = input.charCodeAt(i);
+                    crc = crc >>> 8 ^ table[(crc ^ byte) & 255];
+                }
+                return ((crc ^ 4294967295) >>> 0).toString(16).padStart(8, "0");
+            };
+            const hashToMid = (hashStr, maxTry = 1e8) => {
+                const normalizedHash = normalizeHash(hashStr);
+                if (!normalizedHash) {
+                    return -1;
+                }
+                const table = ensureCRCTable();
+                const limit = Number.isFinite(maxTry) && maxTry > 0 ? Math.floor(maxTry) : 1e8;
+                const index = new Array(4);
+                let ht = (parseInt(normalizedHash, 16) ^ 4294967295) >>> 0;
+                let snum;
+                let lastindex;
+                let deepCheckData;
+                let i;
+                for (i = 3; i >= 0; i--) {
+                    index[3 - i] = getCRCIndex(ht >>> i * 8);
+                    if (index[3 - i] < 0) {
+                        return -1;
+                    }
+                    snum = table[index[3 - i]];
+                    ht ^= snum >>> (3 - i) * 8;
+                }
+                for (i = 0; i < limit; i++) {
+                    lastindex = crc32LastIndex(i);
+                    if (lastindex === index[3]) {
+                        deepCheckData = deepCheck(i, index);
+                        if (deepCheckData[0]) {
+                            break;
+                        }
+                    }
+                }
+                if (i === limit || !deepCheckData?.[0]) {
+                    return -1;
+                }
+                return `${i}${deepCheckData[1]}`;
+            };
+            return {
+                midToHash,
+                hashToMid
+            };
+        })();
         class BiliUserApi {
             constructor(client) {
                 this.client = client;
@@ -7475,17 +7622,63 @@
         }
         class BiliUser {
             static parseUrl(url) {
-                const mid = url.match(/\/(\d+)/)?.[1];
+                if (typeof url !== "string") {
+                    return "";
+                }
+                const text = url.trim();
+                const mid = text.match(/space\.bilibili\.com\/(\d+)/)?.[1] || text.match(/\/(\d+)(?:[/?#]|$)/)?.[1] || "";
                 return mid;
+            }
+            static normalizeMid(midOrUrl) {
+                if (midOrUrl == null) {
+                    return "";
+                }
+                if (typeof midOrUrl === "number" && Number.isFinite(midOrUrl)) {
+                    return String(Math.trunc(midOrUrl));
+                }
+                const text = String(midOrUrl).trim();
+                if (!text) {
+                    return "";
+                }
+                if (/^\d+$/.test(text)) {
+                    return text;
+                }
+                return this.parseUrl(text);
+            }
+            static midToHash(mid) {
+                return midHash.midToHash(mid);
+            }
+            static hashToMid(hashStr, maxTry = 1e8) {
+                return midHash.hashToMid(hashStr, maxTry);
+            }
+            static getMidHash(mid) {
+                return this.midToHash(mid);
             }
             constructor(ctx, mid) {
                 this.ctx = ctx;
-                this.mid = mid;
+                this.mid = this.constructor.normalizeMid(mid);
                 this.client = ctx.client;
                 this.logger = ctx.logger || new Proxy({}, {
                     get: () => () => {}
                 });
                 this.api = new BiliUserApi(this.client);
+            }
+            getMidHash() {
+                return this.constructor.getMidHash(this.mid);
+            }
+            async getCard(photo = true) {
+                const mid = this.mid;
+                if (!mid) {
+                    return;
+                }
+                return await this.api.getCard(mid, photo);
+            }
+            async getInfo() {
+                const mid = this.mid;
+                if (!mid) {
+                    return;
+                }
+                return await this.api.getInfo(mid);
             }
             async getArchives() {
                 const mid = this.mid;

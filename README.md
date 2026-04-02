@@ -12,6 +12,7 @@
 - **Archive**：支持获取**视频、番剧、课程、动态**等稿件数据，并处理成统一的信息。[详情](https://github.com/ZBpine/bili-data-manager/blob/main/docs/BiliAchive.md)
 - **Danmaku**：支持获取xml实时弹幕、protobuf实时弹幕、历史弹幕。[详情](https://github.com/ZBpine/bili-data-manager/blob/main/docs/BiliDanmaku.md)
 - **Comment**：支持获取评论数据，还能够自动构建评论间的层级树状结构。[详情](https://github.com/ZBpine/bili-data-manager/blob/main/docs/BiliComment.md)
+- **User**：支持获取用户信息与 midHash 转换。[详情](https://github.com/ZBpine/bili-data-manager/blob/main/docs/BiliUser.md)
 
 ## 使用
 

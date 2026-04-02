@@ -40,6 +40,15 @@ unsafeWindow.BDM.getCmt = async (url = location.href) => {
     logger.log(cmtMgr);
     return { arc: arcMgr, cmt: cmtMgr };
 };
+unsafeWindow.BDM.getAll = async (url = location.href) => {
+    const arcMgr = new BDM.BiliArchive();
+    const info = await arcMgr.getData(url);
+    const dmMgr = new BDM.BiliDanmaku(info);
+    await dmMgr.getDmPb();
+    const cmtMgr = new BDM.BiliComment(info);
+    await cmtMgr.getReply();
+    return { ...arcMgr.data, ...dmMgr.data, ...cmtMgr.data };
+};
 unsafeWindow.BDM.getUser = (url = location.href) => {
     const mid = BDM.BiliUser.parseUrl(url);
     const userMgr = new BDM.BiliUser(mid);

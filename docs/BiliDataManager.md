@@ -10,6 +10,7 @@
 | `BiliArchive`    | `Class`    | 支持获取**视频、番剧、课程、动态**等稿件数据，并处理成统一的信息。[详情](./BiliAchive.md)     |
 | `BiliDanmaku`    | `Class`    | 支持获取xml实时弹幕、protobuf实时弹幕、历史弹幕。[详情](./BiliDanmaku.md)    |
 | `BiliComment`    | `Class`    | 支持获取评论数据，还能够自动构建评论间的层级树状结构。[详情](./BiliComment.md)      |
+| `BiliUser`       | `Class`    | 支持获取用户信息与 midHash 转换。[详情](./BiliUser.md) |
 | `handler`        | `Object`   | BiliArchive的处理器。[详情](./BiliArchive.md#handler)          |
 | `create(config)` | `Function` | 创建一个 BiliDataManager 环境。见下           |
 
@@ -28,6 +29,7 @@
 | `BiliArchive` | `Class`   |  无需传ctx，handlers  |
 | `BiliDanmaku` | `Class`   |  无需传ctx  |
 | `BiliComment` | `Class`   |  无需传ctx  |
+| `BiliUser`    | `Class`   |  无需传ctx  |
 | `client`      | `Object`  |  BiliClient实例 |
 | `logger`      | `Object`  |  console的Proxy，[log\|info\|warn\|error]带前缀tag |
 | `name`        | `String`  |  同输入     |

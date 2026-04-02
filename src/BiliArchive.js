@@ -13,7 +13,7 @@ export class BiliArchive {
             : handlers
               ? [handlers]
               : handlerList;
-        for (const h of handlers) {
+        for (let h of handlers) {
             if (typeof h === "string" && handler[h]) h = handler[h];
             if (h && h.name) this.handlers.push(h);
         }
@@ -28,7 +28,7 @@ export class BiliArchive {
             : handlers
               ? [handlers]
               : handlerList;
-        for (const h of handlers) {
+        for (let h of handlers) {
             if (typeof h === "string" && handler[h]) h = handler[h];
             if (h && h.match) {
                 if (h.match(url)) return h.parse(url);
