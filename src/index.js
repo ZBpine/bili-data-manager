@@ -73,4 +73,4 @@ function create(config) {
     };
 }
 
-export { BiliClient, BiliArchive, BiliDanmaku, BiliComment, handler, create };
+export { BiliClient, BiliArchive, BiliDanmaku, BiliComment, BiliUser, handler, create };

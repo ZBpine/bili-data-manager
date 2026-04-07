@@ -2,7 +2,7 @@
 // @name        BiliDataManager
 // @namespace   https://github.com/ZBpine/bili-data-manager
 // @description BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。
-// @version     1.0.3
+// @version     1.1.0
 // @author      ZBpine
 // @icon        https://www.bilibili.com/favicon.ico
 // @license     MIT
@@ -2548,6 +2548,7 @@
             BiliClient: () => /* reexport */ BiliClient,
             BiliComment: () => /* reexport */ BiliComment,
             BiliDanmaku: () => /* reexport */ BiliDanmaku,
+            BiliUser: () => /* reexport */ BiliUser,
             create: () => /* binding */ create,
             handler: () => /* reexport */ handler
         });

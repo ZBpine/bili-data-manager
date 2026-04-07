@@ -24,7 +24,7 @@ const getlibConfig = (name, filename, optimization) => {
                 file: filename,
                 name: "BiliDataManager",
                 namespace: "https://github.com/ZBpine/bili-data-manager",
-                version: "1.0.3",
+                version: "1.1.0",
                 description:
                     "BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。",
                 author: "ZBpine",
