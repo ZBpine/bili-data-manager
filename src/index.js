@@ -6,10 +6,10 @@ import { BiliDanmaku } from "./BiliDanmaku.js";
 import { BiliComment } from "./BiliComment.js";
 import { BiliUser } from "./BiliUser.js";
 import { handler } from "./handlers/handler.js";
+import { createDefaultHttpRequest } from "./httpRequest.js";
 
 function create(config) {
     let { name, httpRequest, handlers, isLog, loggerColor } = config || {};
-    if (!httpRequest) throw new Error("httpRequest is required");
     name = name || "BiliDataManager";
     isLog = isLog !== false;
     loggerColor = loggerColor || "#00a0d8";
@@ -38,6 +38,10 @@ function create(config) {
             return original.bind(target);
         },
     });
+    if (!httpRequest) {
+        logger.info("未传入 httpRequest，使用内置 fetch 适配器");
+        httpRequest = createDefaultHttpRequest(logger);
+    }
     const client = new BiliClient(httpRequest, logger);
     const ctx = { client, logger };
 

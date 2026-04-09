@@ -29,7 +29,7 @@
 
 ```javascript
 const BDM = BiliDataManager.create({
-    httpRequest: GM_xmlhttpRequest,
+    httpRequest: GM_xmlhttpRequest, // 可选，不传则使用内置 fetch 适配器
     name: "B站数据管理",
     isLog: true,
 });

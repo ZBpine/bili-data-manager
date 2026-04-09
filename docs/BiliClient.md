@@ -16,7 +16,7 @@ BiliClient 是一个用于与哔哩哔哩 API 交互的类，它封装了请求�
 // 方式一：统一创建环境
 const BDM = BiliDataManager.create({
     name: "B站数据管理", //用于logger标签，可不填
-    httpRequest: GM_xmlhttpRequest,
+    httpRequest: GM_xmlhttpRequest, // 可选，不传则用内置 fetch 适配器
     isLog: true, //不填则默认false
 });
 const client = BDM.client;
@@ -59,3 +59,11 @@ BiliClient 期望的 `httpRequest` 包含：
     - json
     - document
     - arraybuffer
+
+`create` 未传 `httpRequest` 时，库会自动使用一个基于 `fetch` 的默认适配器，接口签名与上面保持一致。
+
+默认适配器限制：
+
+- 无法绕过浏览器 CORS。
+- 无法手动设置 `User-Agent` / `Referer` / `Cookie` 等受限请求头。
+- Cookie 依赖 `credentials: "include"` 与当前站点策略。

@@ -18,11 +18,13 @@
 
 | 输入对象       | 类型       | 描述                                    |
 | :------------ | :--------- | :-------------------------------------- |
-| `httpRequest` | `Function` | **必填**。传入 `GM_xmlhttpRequest`。     |
+| `httpRequest` | `Function` | 可选。优先传入 `GM_xmlhttpRequest`；不传则使用内置 fetch 适配器。 |
 | `isLog`       | `Boolean`  | 是否在控制台打印流程日志。                |
 | `name`        | `String`   | 日志前缀。                               |
 | `loggerColor` | `String`   | 日志前缀背景色，默认 `#01a1d6` (B站蓝)。  |
 | `handlers`    | `Array`    | 见[handler](./BiliArchive.md#handler)   |
+
+> 内置 fetch 适配器在非 Userscript 环境下受 CORS 与浏览器受限请求头影响，跨域能力不等同于 `GM_xmlhttpRequest`。
 
 |  返回对象      |  类型     |  描述      |
 |:------------- |:--------- |:---------- |
