@@ -12,7 +12,7 @@ function create(config) {
     let { name, httpRequest, handlers, isLog, loggerColor } = config || {};
     name = name || "BiliDataManager";
     isLog = isLog !== false;
-    loggerColor = loggerColor || "#00a0d8";
+    loggerColor = loggerColor || "#00a1d6";
 
     const logger = new Proxy(console, {
         get(target, prop) {
@@ -70,6 +70,7 @@ function create(config) {
         name,
         client,
         logger,
+        changeColor: (color) => (loggerColor = color),
         BiliArchive: BoundArchive,
         BiliDanmaku: BoundDanmaku,
         BiliComment: BoundComment,

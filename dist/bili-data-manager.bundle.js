@@ -2,7 +2,7 @@
 // @name        BiliDataManager
 // @namespace   https://github.com/ZBpine/bili-data-manager
 // @description BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。
-// @version     1.2.0
+// @version     1.2.1
 // @author      ZBpine
 // @icon        https://www.bilibili.com/favicon.ico
 // @license     MIT
@@ -3033,7 +3033,7 @@
                                     favorite: episodeInfo.stat.favorite,
                                     share: episodeInfo.stat.share,
                                     danmaku: episodeInfo.stat.dm,
-                                    comment: episodeInfo.stat.reply
+                                    reply: episodeInfo.stat.reply
                                 }
                             });
                             if (episodeInfo.related_up?.length > 1) {
@@ -7514,7 +7514,7 @@
                     const byte = input.charCodeAt(i);
                     crc = crc >>> 8 ^ table[(crc ^ byte) & 255];
                 }
-                return ((crc ^ 4294967295) >>> 0).toString(16).padStart(8, "0");
+                return ((crc ^ 4294967295) >>> 0).toString(16);
             };
             const hashToMid = (hashStr, maxTry = 1e8) => {
                 const normalizedHash = normalizeHash(hashStr);
@@ -7771,7 +7771,7 @@
             let {name, httpRequest, handlers, isLog, loggerColor} = config || {};
             name = name || "BiliDataManager";
             isLog = isLog !== false;
-            loggerColor = loggerColor || "#00a0d8";
+            loggerColor = loggerColor || "#00a1d6";
             const logger = new Proxy(console, {
                 get(target, prop) {
                     if (!isLog) {
@@ -7820,6 +7820,7 @@
                 name,
                 client,
                 logger,
+                changeColor: color => loggerColor = color,
                 BiliArchive: BoundArchive,
                 BiliDanmaku: BoundDanmaku,
                 BiliComment: BoundComment,

@@ -135,7 +135,7 @@ export const bangumiHandler = {
                             favorite: episodeInfo.stat.favorite,
                             share: episodeInfo.stat.share,
                             danmaku: episodeInfo.stat.dm,
-                            comment: episodeInfo.stat.reply,
+                            reply: episodeInfo.stat.reply,
                         },
                     });
                     if (episodeInfo.related_up?.length > 1) {

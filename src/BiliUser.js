@@ -110,7 +110,7 @@ const midHash = (() => {
             const byte = input.charCodeAt(i);
             crc = (crc >>> 8) ^ table[(crc ^ byte) & 0xff];
         }
-        return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, "0");
+        return ((crc ^ 0xffffffff) >>> 0).toString(16);
     };
 
     const hashToMid = (hashStr, maxTry = 100_000_000) => {
