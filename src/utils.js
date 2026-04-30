@@ -37,6 +37,35 @@ export function httptoHttps(url) {
 }
 
 /**
+ * 过滤对象顶层字段
+ * @param {Object} data 原始对象
+ * @param {Array<string>} fieldList 字段名单
+ * @param {boolean} [isWhitelist=false] 过滤模式，false=黑名单，true=白名单
+ * @returns {Object} 过滤后的新对象
+ */
+export function filterData(data, fieldList = [], isWhitelist = false) {
+    if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+
+    const fields = new Set(Array.isArray(fieldList) ? fieldList : []);
+
+    if (isWhitelist) {
+        const result = {};
+        for (const key of fields) {
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                result[key] = data[key];
+            }
+        }
+        return result;
+    }
+
+    const result = { ...data };
+    for (const key of fields) {
+        delete result[key];
+    }
+    return result;
+}
+
+/**
  * 将日期字符串（北京时间）转换为时间戳（秒）
  * @param {string} date 日期字符串，格式为 "YYYY-MM-DD"
  * @returns {number} 对应的时间戳（秒）

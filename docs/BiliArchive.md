@@ -70,14 +70,25 @@ arcMgr.setData(data);
 ### 说明
 
 #### BiliArchive
-|      BiliArchive       |   类型   |     作用     | 说明   |
-| :--------------------: | :------: | :---------: | :----: |
-|          info          |  Object  |   稿件信息   | 提取出来的信息，getData或setData之后自动提取，具体见下 |
-|          data          |  Object  |   稿件数据   | 如果要存储到本地就存储这个 |
-| **async** getData(url) | Function | 获取稿件数据 | url只填BV□□□□或ep□□□□也行，ep的话优先匹配为番剧，除非加上cheese字符，或者前面handlers别带bangumi |
-|       clearData        | Function | 清空稿件数据 |        |
-|     setData(data)      | Function | 设置稿件数据 | 传上面存的data  |
-|   **Static** parseUrl  | Function |   解析url   | 返回id,url,其他（见info）  |
+|      BiliArchive        |   类型   |     作用     | 说明   |
+| :---------------------: | :------: | :---------: | :----: |
+|           info          |  Object  |   稿件信息   | 提取出来的信息，getData或setData之后自动提取，具体见下 |
+|           data          |  Object  |   稿件数据   | 如果要存储到本地就存储这个 |
+| **async** getData(url)  | Function | 获取稿件数据 | url只填BV□□□□或ep□□□□也行，ep的话优先匹配为番剧，除非加上cheese字符，或者前面handlers别带bangumi |
+|        clearData        | Function | 清空稿件数据 |        |
+|      setData(data)      | Function | 设置稿件数据 | 传上面存的data  |
+|   **Static** parseUrl   | Function |   解析url   | 返回id,url,其他（见info）  |
+| **async** getPlayerInfo | Function | 获取 web 播放器信息 |  包含章节看点、互动视频所需数据（自动过滤隐私数据）  |
+|  **async** getOnline    | Function | 获取当前在看人数 |    |
+|          invoke         | Function | 调用当前handler独有的方法 |  invoke("method", ...args)  |
+
+> #### invoke 可用扩展方法（video handler）
+>
+> | 方法名 | 调用方式 | 说明 |
+> | :-- | :-- | :-- |
+> | getInteractEdgeInfo | `await arcMgr.invoke("getInteractEdgeInfo", onProgress)` | 递归抓取互动视频节点信息，结果写入 `data.interact_edge_info_list` |
+> | clearInteractEdgeInfo | `arcMgr.invoke("clearInteractEdgeInfo")` | 删除 `data.interact_edge_info_list` |
+> | buildInteractGraph | `arcMgr.invoke("buildInteractGraph")` | 将 `interact_edge_info_list` 构建为双向邻接表 |
 
 ----
 

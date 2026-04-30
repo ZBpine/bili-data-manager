@@ -19,6 +19,14 @@ unsafeWindow.BDM.getInfo = async (url = location.href) => {
     logger.log(info);
     return arcMgr;
 };
+unsafeWindow.BDM.getInteract = async (url = location.href) => {
+    const arcMgr = new BDM.BiliArchive();
+    await arcMgr.getData(url);
+    const playerInfo = await arcMgr.getPlayerInfo();
+    const edgeInfo = await arcMgr.invoke("getInteractEdgeInfo");
+    const graph = arcMgr.invoke("buildInteractGraph");
+    return { arcMgr, playerInfo, edgeInfo, graph };
+};
 unsafeWindow.BDM.getDm = async (url = location.href) => {
     const arcMgr = new BDM.BiliArchive();
     const info = await arcMgr.getData(url);

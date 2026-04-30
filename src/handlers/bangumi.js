@@ -1,6 +1,6 @@
 // src/handlers/bangumi.js
 
-import { httptoHttps } from "../utils.js";
+import { httptoHttps, filterData } from "../utils.js";
 
 export const bangumiHandler = {
     name: "bangumi",
@@ -44,7 +44,11 @@ export const bangumiHandler = {
                 params: { ep_id },
                 desc: `获取剧集信息 ${ep_id}`,
             });
-            const episodeInfo = episodeRes.data || {};
+            const episodeInfo = filterData(
+                episodeRes.data || {},
+                ["episode_id", "related_up", "stat"],
+                true,
+            );
             return {
                 ...idObj,
                 bangumi_season_view: seasonView,

@@ -2,7 +2,7 @@
 // @name        BiliDataManager
 // @namespace   https://github.com/ZBpine/bili-data-manager
 // @description BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。
-// @version     1.2.1
+// @version     1.3.0
 // @author      ZBpine
 // @icon        https://www.bilibili.com/favicon.ico
 // @license     MIT
@@ -2740,6 +2740,32 @@
             return typeof url === "string" ? url.replace(/^http:/, "https:") : url;
         }
         /**
+ * 过滤对象顶层字段
+ * @param {Object} data 原始对象
+ * @param {Array<string>} fieldList 字段名单
+ * @param {boolean} [isWhitelist=false] 过滤模式，false=黑名单，true=白名单
+ * @returns {Object} 过滤后的新对象
+ */        function filterData(data, fieldList = [], isWhitelist = false) {
+            if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+            const fields = new Set(Array.isArray(fieldList) ? fieldList : []);
+            if (isWhitelist) {
+                const result = {};
+                for (const key of fields) {
+                    if (Object.prototype.hasOwnProperty.call(data, key)) {
+                        result[key] = data[key];
+                    }
+                }
+                return result;
+            }
+            const result = {
+                ...data
+            };
+            for (const key of fields) {
+                delete result[key];
+            }
+            return result;
+        }
+        /**
  * 将日期字符串（北京时间）转换为时间戳（秒）
  * @param {string} date 日期字符串，格式为 "YYYY-MM-DD"
  * @returns {number} 对应的时间戳（秒）
@@ -2881,19 +2907,193 @@
                 }
                 return info;
             },
-            getCustomConfig(ctx, info) {
+            getCustomConfig(self) {
                 //能获取被删视频是谁删的
-                const {aid, bvid} = info;
+                const {aid, bvid} = self.info || {};
                 if (!bvid) throw new Error("no bvid");
                 const params = {
                     bvid
                 };
                 if (aid) params.aid = aid;
-                return ctx.client.request({
+                return self.ctx.client.request({
                     url: "https://api.bilibili.com/x/web-interface/archive/custom/config",
                     params,
                     desc: `获取稿件自定义配置 ${bvid}`
                 });
+            },
+            async getInteractEdgeInfo(self, onProgress = async () => {}) {
+                const aid = self.info?.aid;
+                const graphVersion = self.data?.player_info?.interaction?.graph_version;
+                if (!aid || !graphVersion) {
+                    throw new Error("getInteractEdgeInfo: missing aid or graph_version");
+                }
+                if (!Array.isArray(self.data.interact_edge_info_list)) {
+                    self.data.interact_edge_info_list = [];
+                }
+                const expanded = new Set;
+                const walk = async (edgeId = null) => {
+                    const currentId = edgeId == null ? 1 : edgeId;
+                    if (expanded.has(currentId)) {
+                        return;
+                    }
+                    expanded.add(currentId);
+                    let data = self.data.interact_edge_info_list.find(item => item?.edge_id === currentId);
+                    if (!data) {
+                        const params = {
+                            aid,
+                            graph_version: graphVersion
+                        };
+                        if (edgeId != null) {
+                            params.edge_id = edgeId;
+                        }
+                        const res = await self.ctx.client.request({
+                            url: "https://api.bilibili.com/x/stein/edgeinfo_v2",
+                            params,
+                            desc: edgeId == null ? `获取互动视频 aid=${aid} 起始节点` : `获取互动视频 aid=${aid} 节点 edge_id=${edgeId}`
+                        });
+                        data = res?.data || {};
+                        const currentEdgeId = data.edge_id;
+                        if (currentEdgeId == null) {
+                            throw new Error("getInteractEdgeInfo: edgeinfo has no edge_id");
+                        }
+                        self.data.interact_edge_info_list.push(data);
+                        await onProgress(data, {
+                            edge_id: currentEdgeId,
+                            count: self.data.interact_edge_info_list.length
+                        });
+                    }
+                    const choices = data?.edges?.questions?.[0]?.choices;
+                    if (!Array.isArray(choices)) {
+                        return;
+                    }
+                    for (const choice of choices) {
+                        const nextEdgeId = choice?.id;
+                        if (nextEdgeId == null) {
+                            continue;
+                        }
+                        await walk(nextEdgeId);
+                    }
+                };
+                await walk(null);
+                return self.data.interact_edge_info_list;
+            },
+            clearInteractEdgeInfo(self) {
+                delete self.data.interact_edge_info_list;
+            },
+            buildInteractGraph(self, dedupe = false) {
+                const list = Array.isArray(self.data?.interact_edge_info_list) ? self.data.interact_edge_info_list : [];
+                const graph = {};
+                const ensureNode = (id, cid, title) => {
+                    if (id == null) return null;
+                    const key = String(id);
+                    graph[key] ??= {
+                        id,
+                        cid: null,
+                        title: null,
+                        in: [],
+                        out: []
+                    };
+                    if (cid != null) graph[key].cid ??= cid;
+                    if (title != null) graph[key].title = title;
+                    return graph[key];
+                };
+                for (const item of list) {
+                    const sourceId = item?.edge_id;
+                    if (sourceId == null) {
+                        continue;
+                    }
+                    ensureNode(sourceId, sourceId === 1 ? self.info?.cid : undefined, item?.title);
+                    const choices = item?.edges?.questions?.[0]?.choices;
+                    if (!Array.isArray(choices)) {
+                        continue;
+                    }
+                    for (const choice of choices) {
+                        const targetId = choice?.id;
+                        if (targetId == null) {
+                            continue;
+                        }
+                        ensureNode(targetId, choice?.cid);
+                        const sourceKey = String(sourceId);
+                        const targetKey = String(targetId);
+                        const option = choice?.option;
+                        graph[sourceKey].out.push({
+                            id: targetId,
+                            option
+                        });
+                        graph[targetKey].in.push({
+                            id: sourceId,
+                            option
+                        });
+                    }
+                }
+                if (!dedupe) {
+                    return graph;
+                }
+                const nodeIds = Object.keys(graph);
+                const signatureMap = new Map;
+                for (const key of nodeIds) {
+                    const node = graph[key];
+                    const outSig = [ ...node.out ].map(edge => ({
+                        id: edge.id,
+                        option: edge.option ?? null
+                    })).sort((a, b) => {
+                        if (a.id !== b.id) return a.id - b.id;
+                        if (a.option === b.option) return 0;
+                        return String(a.option).localeCompare(String(b.option));
+                    });
+                    const sig = JSON.stringify({
+                        cid: node.cid ?? null,
+                        title: node.title ?? null,
+                        out: outSig
+                    });
+                    if (!signatureMap.has(sig)) signatureMap.set(sig, []);
+                    signatureMap.get(sig).push(node.id);
+                }
+                const replaceMap = new Map;
+                for (const ids of signatureMap.values()) {
+                    if (ids.length <= 1) continue;
+                    ids.sort((a, b) => a - b);
+                    const keepId = ids[0];
+                    const mergedIds = ids.slice(1);
+                    const keepNode = graph[String(keepId)];
+                    keepNode.merged_ids = mergedIds;
+                    for (const dropId of mergedIds) {
+                        replaceMap.set(dropId, keepId);
+                    }
+                }
+                if (!replaceMap.size) {
+                    return graph;
+                }
+                for (const key of Object.keys(graph)) {
+                    const node = graph[key];
+                    node.out = node.out.map(edge => ({
+                        id: replaceMap.get(edge.id) ?? edge.id,
+                        option: edge.option
+                    }));
+                    node.in = [];
+                }
+                for (const dropId of replaceMap.keys()) {
+                    delete graph[String(dropId)];
+                }
+                for (const sourceKey of Object.keys(graph)) {
+                    const sourceNode = graph[sourceKey];
+                    for (const edge of sourceNode.out) {
+                        const targetNode = graph[String(edge.id)];
+                        if (!targetNode) continue;
+                        targetNode.in.push({
+                            id: sourceNode.id,
+                            option: edge.option
+                        });
+                    }
+                }
+                return graph;
+            },
+            buildInfoByGraphNode(self, node = {}) {
+                return {
+                    ...self.info,
+                    cid: node?.cid,
+                    subtitle: `互动：${node?.title ?? ""}`
+                };
             }
         };
         // ./src/handlers/bangumi.js
@@ -2945,7 +3145,7 @@
                         },
                         desc: `获取剧集信息 ${ep_id}`
                     });
-                    const episodeInfo = episodeRes.data || {};
+                    const episodeInfo = filterData(episodeRes.data || {}, [ "episode_id", "related_up", "stat" ], true);
                     return {
                         ...idObj,
                         bangumi_season_view: seasonView,
@@ -3252,6 +3452,7 @@
         }
         // ./src/BiliArchive.js
         // src/BiliArchive.js
+        const PLAYER_INFO_BLACKLIST = [ "ip_info", "login_mid", "login_mid_hash", "is_owner", "name", "level_info", "vip", "answer_status", "block_time", "role" ];
         class BiliArchive {
             constructor(ctx, handlers) {
                 this.ctx = ctx;
@@ -3326,6 +3527,65 @@
                     this.logger.error("BiliArchive setData error:", e);
                     return null;
                 }
+            }
+            async getPlayerInfo() {
+                const aid = this.info?.aid ?? this.data?.aid;
+                const cid = this.info?.cid ?? this.data?.cid;
+                if (!aid || !cid) {
+                    this.logger.warn("BiliArchive getPlayerInfo failed: missing aid/cid");
+                    return null;
+                }
+                try {
+                    const res = await this.ctx.client.request({
+                        url: "https://api.bilibili.com/x/player/wbi/v2",
+                        params: {
+                            aid,
+                            cid
+                        },
+                        sign: true,
+                        desc: `获取播放器信息 aid=${aid} cid=${cid}`
+                    });
+                    const playerInfo = filterData(res?.data || {}, PLAYER_INFO_BLACKLIST, false);
+                    this.data.player_info = playerInfo;
+                    return playerInfo;
+                } catch (e) {
+                    this.logger.error("BiliArchive getPlayerInfo error:", e);
+                    return null;
+                }
+            }
+            async getOnline() {
+                const {aid, cid} = this.info || {};
+                if (!aid || !cid) {
+                    this.logger.warn("BiliArchive getOnline failed: missing info.aid/info.cid");
+                    return null;
+                }
+                try {
+                    const res = await this.ctx.client.request({
+                        url: "https://api.bilibili.com/x/player/online/total",
+                        params: {
+                            aid,
+                            cid
+                        },
+                        desc: `获取视频在线人数 aid=${aid} cid=${cid}`
+                    });
+                    return res?.data || {};
+                } catch (e) {
+                    this.logger.error("BiliArchive getOnline error:", e);
+                    return null;
+                }
+            }
+            invoke(method, ...args) {
+                if (!this._handler) {
+                    throw new Error("No handler selected, call getData/setData first");
+                }
+                if (typeof method !== "string" || !method.trim()) {
+                    throw new TypeError("invoke(method): method must be a non-empty string");
+                }
+                const fn = this._handler[method];
+                if (typeof fn !== "function") {
+                    throw new Error(`Handler "${this._handler.name}" has no method "${method}"`);
+                }
+                return fn.call(this._handler, this, ...args);
             }
         }
         // EXTERNAL MODULE: ./node_modules/protobufjs/minimal.js
@@ -6585,9 +6845,7 @@
                     //分片错误记录
                     dates: []
                 };
-                this.dateError = [];
- //历史日期错误记录
-                        }
+            }
             static parsePb(buffer, type) {
                 const protoType = dmPbRoot[type];
                 if (!protoType) {
@@ -6640,6 +6898,11 @@
             setData(data) {
                 this.clearData();
                 if (data.danmaku_view) this.data.danmaku_view = data.danmaku_view;
+                if (data.danmaku_list_cid) {
+                    this.data.danmaku_list_cid = {
+                        ...data.danmaku_list_cid
+                    };
+                }
                 if (data.commandDms) {
                     this.data.danmaku_view ??= {};
                     this.data.danmaku_view.commandDms = data.commandDms;
@@ -6650,10 +6913,34 @@
                 }
                 this.buildData();
             }
+            changeInfo(info = {}) {
+                let hasDmList = false;
+                if (this.info?.aid !== info?.aid) {
+                    this.clearData();
+                } else if (this.info?.cid !== info?.cid) {
+                    if (this.info?.cid != null) {
+                        this.data.danmaku_list_cid ??= {};
+                        this.data.danmaku_list_cid[this.info.cid] = [ ...this.data.danmaku_list || [] ];
+                    }
+                    this.clearData();
+                    const cacheList = this.data.danmaku_list_cid?.[info?.cid];
+                    if (Array.isArray(cacheList) && cacheList.length) {
+                        cacheList.forEach(dm => this.addDm(dm));
+                        this.buildData();
+                        hasDmList = true;
+                    }
+                }
+                this.info = info || {};
+                return hasDmList;
+            }
             clearData() {
                 this.dmDict = {};
                 this.buildData();
                 if (this.data.danmaku_view) delete this.data.danmaku_view;
+                this.errors = {
+                    segments: [],
+                    dates: []
+                };
             }
             buildData() {
                 this.data.danmaku_list = Object.values(this.dmDict);

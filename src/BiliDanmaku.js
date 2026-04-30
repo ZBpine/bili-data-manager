@@ -81,7 +81,6 @@ export class BiliDanmaku {
             segments: [], //分片错误记录
             dates: [], //历史日期错误记录
         };
-        this.dateError = []; //历史日期错误记录
     }
     static parsePb(buffer, type) {
         const protoType = dmPbRoot[type];
@@ -136,6 +135,9 @@ export class BiliDanmaku {
     setData(data) {
         this.clearData();
         if (data.danmaku_view) this.data.danmaku_view = data.danmaku_view;
+        if (data.danmaku_list_cid) {
+            this.data.danmaku_list_cid = { ...data.danmaku_list_cid };
+        }
         if (data.commandDms) {
             this.data.danmaku_view ??= {};
             this.data.danmaku_view.commandDms = data.commandDms;
@@ -147,10 +149,36 @@ export class BiliDanmaku {
         }
         this.buildData();
     }
+    changeInfo(info = {}) {
+        let hasDmList = false;
+        if (this.info?.aid !== info?.aid) {
+            this.clearData();
+        } else if (this.info?.cid !== info?.cid) {
+            if (this.info?.cid != null) {
+                this.data.danmaku_list_cid ??= {};
+                this.data.danmaku_list_cid[this.info.cid] = [
+                    ...(this.data.danmaku_list || []),
+                ];
+            }
+            this.clearData();
+            const cacheList = this.data.danmaku_list_cid?.[info?.cid];
+            if (Array.isArray(cacheList) && cacheList.length) {
+                cacheList.forEach((dm) => this.addDm(dm));
+                this.buildData();
+                hasDmList = true;
+            }
+        }
+        this.info = info || {};
+        return hasDmList;
+    }
     clearData() {
         this.dmDict = {};
         this.buildData();
         if (this.data.danmaku_view) delete this.data.danmaku_view;
+        this.errors = {
+            segments: [],
+            dates: [],
+        };
     }
     buildData() {
         this.data.danmaku_list = Object.values(this.dmDict);
