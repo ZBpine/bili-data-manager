@@ -25,7 +25,8 @@ unsafeWindow.BDM.getInteract = async (url = location.href) => {
     const playerInfo = await arcMgr.getPlayerInfo();
     const edgeInfo = await arcMgr.invoke("getInteractEdgeInfo");
     const graph = arcMgr.invoke("buildInteractGraph");
-    return { arcMgr, playerInfo, edgeInfo, graph };
+    const varsMap = arcMgr.invoke("getInteractVarsMap");
+    return { arcMgr, playerInfo, edgeInfo, graph, varsMap };
 };
 unsafeWindow.BDM.getDm = async (url = location.href) => {
     const arcMgr = new BDM.BiliArchive();

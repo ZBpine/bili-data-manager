@@ -2,7 +2,7 @@
 // @name        BiliDataManager
 // @namespace   https://github.com/ZBpine/bili-data-manager
 // @description BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。
-// @version     1.3.0
+// @version     1.3.1
 // @author      ZBpine
 // @icon        https://www.bilibili.com/favicon.ico
 // @license     MIT
@@ -2931,10 +2931,12 @@
                     self.data.interact_edge_info_list = [];
                 }
                 const expanded = new Set;
-                const walk = async (edgeId = null) => {
+                const queue = [ null ];
+                while (queue.length) {
+                    const edgeId = queue.shift();
                     const currentId = edgeId == null ? 1 : edgeId;
                     if (expanded.has(currentId)) {
-                        return;
+                        continue;
                     }
                     expanded.add(currentId);
                     let data = self.data.interact_edge_info_list.find(item => item?.edge_id === currentId);
@@ -2964,21 +2966,33 @@
                     }
                     const choices = data?.edges?.questions?.[0]?.choices;
                     if (!Array.isArray(choices)) {
-                        return;
+                        continue;
                     }
                     for (const choice of choices) {
                         const nextEdgeId = choice?.id;
-                        if (nextEdgeId == null) {
+                        if (nextEdgeId == null || expanded.has(nextEdgeId)) {
                             continue;
                         }
-                        await walk(nextEdgeId);
+                        queue.push(nextEdgeId);
                     }
-                };
-                await walk(null);
+                }
                 return self.data.interact_edge_info_list;
             },
             clearInteractEdgeInfo(self) {
                 delete self.data.interact_edge_info_list;
+            },
+            getInteractVarsMap(self) {
+                const list = Array.isArray(self.data?.interact_edge_info_list) ? self.data.interact_edge_info_list : [];
+                const varsMap = {};
+                const varsItem = list.find(item => item?.edge_id === 1 && item?.hidden_vars?.length) || list.find(item => item?.hidden_vars?.length);
+                for (const variable of varsItem?.hidden_vars || []) {
+                    const key = String(variable?.id_v2 || "").trim();
+                    if (!key) continue;
+                    varsMap[key] = {
+                        ...variable
+                    };
+                }
+                return varsMap;
             },
             buildInteractGraph(self, dedupe = false) {
                 const list = Array.isArray(self.data?.interact_edge_info_list) ? self.data.interact_edge_info_list : [];
@@ -3013,16 +3027,20 @@
                             continue;
                         }
                         ensureNode(targetId, choice?.cid);
-                        const sourceKey = String(sourceId);
-                        const targetKey = String(targetId);
                         const option = choice?.option;
-                        graph[sourceKey].out.push({
+                        const action = String(choice?.native_action || "").trim();
+                        const condition = String(choice?.condition || "").trim();
+                        graph[String(sourceId)].out.push({
                             id: targetId,
-                            option
+                            option,
+                            action,
+                            condition
                         });
-                        graph[targetKey].in.push({
+                        graph[String(targetId)].in.push({
                             id: sourceId,
-                            option
+                            option,
+                            action,
+                            condition
                         });
                     }
                 }
@@ -3033,19 +3051,14 @@
                 const signatureMap = new Map;
                 for (const key of nodeIds) {
                     const node = graph[key];
-                    const outSig = [ ...node.out ].map(edge => ({
-                        id: edge.id,
-                        option: edge.option ?? null
-                    })).sort((a, b) => {
-                        if (a.id !== b.id) return a.id - b.id;
-                        if (a.option === b.option) return 0;
-                        return String(a.option).localeCompare(String(b.option));
-                    });
-                    const sig = JSON.stringify({
-                        cid: node.cid ?? null,
-                        title: node.title ?? null,
-                        out: outSig
-                    });
+                    const outSig = [ ...node.out ].map(edge => {
+                        const id = Number(edge?.id);
+                        const option = String(edge?.option ?? "");
+                        const action = String(edge?.action ?? "");
+                        const condition = String(edge?.condition ?? "");
+                        return `${id}|${option}|${action}|${condition}`;
+                    }).sort().join("||");
+                    const sig = `${node.cid ?? ""}##${node.title ?? ""}##${outSig}`;
                     if (!signatureMap.has(sig)) signatureMap.set(sig, []);
                     signatureMap.get(sig).push(node.id);
                 }
@@ -3068,7 +3081,9 @@
                     const node = graph[key];
                     node.out = node.out.map(edge => ({
                         id: replaceMap.get(edge.id) ?? edge.id,
-                        option: edge.option
+                        option: edge.option,
+                        action: edge.action,
+                        condition: edge.condition
                     }));
                     node.in = [];
                 }
@@ -3082,7 +3097,9 @@
                         if (!targetNode) continue;
                         targetNode.in.push({
                             id: sourceNode.id,
-                            option: edge.option
+                            option: edge.option,
+                            action: edge.action,
+                            condition: edge.condition
                         });
                     }
                 }
