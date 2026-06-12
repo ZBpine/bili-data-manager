@@ -114,7 +114,10 @@ export class BiliClient {
     }
     async request({
         url,
+        method = "GET",
         params = {},
+        data = null,
+        headers = {},
         responseType = "json",
         sign = false,
         desc = "",
@@ -125,17 +128,18 @@ export class BiliClient {
         const query = this.getQuery(params, sign);
 
         const fullUrl = query ? `${url}?${query}` : url;
+        const requestMethod = String(method || "GET").toUpperCase();
 
         const doRequest = () =>
             new Promise((resolve, reject) => {
-                const headers = { ...this.headers };
+                const requestHeaders = { ...this.headers, ...headers };
                 if (this.buvid3) {
-                    headers.Cookie = `buvid3=${this.buvid3}`;
+                    requestHeaders.Cookie = `buvid3=${this.buvid3}`;
                 }
-                this.httpRequest({
-                    method: "GET",
+                const details = {
+                    method: requestMethod,
                     url: fullUrl,
-                    headers,
+                    headers: requestHeaders,
                     responseType,
                     onload: (res) => {
                         if (res.status == 412) {
@@ -153,7 +157,11 @@ export class BiliClient {
                         this.logger.error(`❌ [${desc}] 网络错误`, err);
                         reject(err);
                     },
-                });
+                };
+                if (data !== null && data !== undefined) {
+                    details.data = data;
+                }
+                this.httpRequest(details);
             });
         return doRequest().catch(async (err) => {
             if (err.code === 412) {

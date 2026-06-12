@@ -63,6 +63,38 @@ unsafeWindow.BDM.getUser = (url = location.href) => {
     const userMgr = new BDM.BiliUser(mid);
     return userMgr;
 };
+unsafeWindow.BDM.post = async ({
+    url,
+    params = {},
+    data = {},
+    headers = {},
+    sign = false,
+    responseType = "json",
+    desc = "POST测试",
+} = {}) => {
+    if (!url) {
+        throw new Error("BDM.post 需要传入 url");
+    }
+    const body =
+        typeof data === "string" || data instanceof FormData
+            ? data
+            : new URLSearchParams(data).toString();
+    const res = await BDM.client.request({
+        method: "POST",
+        url,
+        params,
+        data: body,
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            ...headers,
+        },
+        responseType,
+        sign,
+        desc,
+    });
+    logger.log(res);
+    return res;
+};
 
 // 以下无关
 const adblockTip = document.querySelector(".adblock-tips");

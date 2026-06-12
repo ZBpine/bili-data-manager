@@ -2,7 +2,7 @@
 // @name        BiliDataManager
 // @namespace   https://github.com/ZBpine/bili-data-manager
 // @description BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。
-// @version     1.3.1
+// @version     1.3.2
 // @author      ZBpine
 // @icon        https://www.bilibili.com/favicon.ico
 // @license     MIT
@@ -2647,23 +2647,25 @@
                 });
                 return this.buvidPromise;
             }
-            async request({url, params = {}, responseType = "json", sign = false, desc = ""}) {
+            async request({url, method = "GET", params = {}, data = null, headers = {}, responseType = "json", sign = false, desc = ""}) {
                 if (sign) {
                     await this.ensureWbiKey();
                 }
                 const query = this.getQuery(params, sign);
                 const fullUrl = query ? `${url}?${query}` : url;
+                const requestMethod = String(method || "GET").toUpperCase();
                 const doRequest = () => new Promise((resolve, reject) => {
-                    const headers = {
-                        ...this.headers
+                    const requestHeaders = {
+                        ...this.headers,
+                        ...headers
                     };
                     if (this.buvid3) {
-                        headers.Cookie = `buvid3=${this.buvid3}`;
+                        requestHeaders.Cookie = `buvid3=${this.buvid3}`;
                     }
-                    this.httpRequest({
-                        method: "GET",
+                    const details = {
+                        method: requestMethod,
                         url: fullUrl,
-                        headers,
+                        headers: requestHeaders,
                         responseType,
                         onload: res => {
                             if (res.status == 412) {
@@ -2681,7 +2683,11 @@
                             this.logger.error(`❌ [${desc}] 网络错误`, err);
                             reject(err);
                         }
-                    });
+                    };
+                    if (data !== null && data !== undefined) {
+                        details.data = data;
+                    }
+                    this.httpRequest(details);
                 });
                 return doRequest().catch(async err => {
                     if (err.code === 412) {
