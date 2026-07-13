@@ -44,6 +44,15 @@ const midHash = userMgr.getMidHash();
 const hash2 = BiliUser.midToHash("2");
 const mid = BiliUser.hashToMid("b57f1c4f", 5_000_000);
 
+let prefix = -1;
+await BiliUser.walkMidHash("b57f1c4f", (result) => {
+    if (result?.mid) {
+        console.log(result.mid);
+    }
+    prefix++;
+    return prefix < 5_000_000 ? prefix : null;
+});
+
 console.log(card, info, archives, series, midHash, hash2, mid);
 ```
 
@@ -66,6 +75,10 @@ console.log(card, info, archives, series, midHash, hash2, mid);
 | parseUrl(url) | 从 URL 解析 `mid` | 用户空间 URL |
 | midToHash(mid) | `mid -> midHash` | `mid` |
 | hashToMid(hashStr, maxTry) | `midHash -> mid`（暴力反查） | `hashStr`，`maxTry` 默认 `100000000` |
-| getMidHash(mid) | 等价于 `midToHash(mid)` | `mid` |
+| walkMidHash(hashStr, getNextPrefix) | 由回调控制每次尝试的前缀；回调返回 `null` 时停止 | `hashStr`，回调函数 |
 
 > `hashToMid` 为暴力反查，`maxTry` 越大越耗时。建议先按业务场景限制搜索范围。
+
+`walkMidHash` 中的前缀是完整 mid 去掉最后三位后的部分。回调第一次收到 `null`，之后收到 `{ prefix, suffix, mid }`；未命中时 `suffix` 与 `mid` 为 `null`。回调可以返回数字、数字字符串、Promise 或 `null`。`prefix = 0` 用于检查 `0-999` 的短 mid，命中结果额外包含 `short: true`；其他前缀按“prefix + 三位 suffix”逆算。
+
+批量用户名片查询位于底层 `userMgr.api.getCards(uids)`，每批接受 1 到 50 个 mid。

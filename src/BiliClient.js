@@ -177,7 +177,7 @@ export class BiliClient {
         });
     }
     async getLoginInfo() {
-        res = await this.request({
+        const res = await this.request({
             url: "https://api.bilibili.com/x/web-interface/nav",
             desc: "获取登录信息",
         });

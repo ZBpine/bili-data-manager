@@ -11,7 +11,7 @@
 // @grant       unsafeWindow
 // @connect     api.bilibili.com
 // @require     https://cdn.jsdelivr.net/gh/ZBpine/bili-data-manager/dist/bili-data-manager.min.js
-// @require     http://localhost:8000/dist/bili-data-manager.min.js?1781255693800
+// @require     http://localhost:8000/dist/bili-data-manager.min.js?1783910900843
 // @license     MIT
 // ==/UserScript==
 

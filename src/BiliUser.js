@@ -2,99 +2,113 @@
 
 const midHash = (() => {
     const CRCPOLYNOMIAL = 0xedb88320;
-    let crcTable = null;
+    const crcTable = new Uint32Array(256);
+    const crcReverseIndex = new Int16Array(256);
+    crcReverseIndex.fill(-1);
 
-    const ensureCRCTable = () => {
-        if (crcTable) {
-            return crcTable;
+    for (let i = 0; i < 256; i++) {
+        let crc = i;
+        for (let bit = 0; bit < 8; bit++) {
+            crc = (crc & 1) !== 0
+                ? CRCPOLYNOMIAL ^ (crc >>> 1)
+                : crc >>> 1;
         }
-        crcTable = new Array(256);
-        for (let i = 0; i < 256; i++) {
-            let crcreg = i;
-            for (let j = 0; j < 8; j++) {
-                if ((crcreg & 1) !== 0) {
-                    crcreg = CRCPOLYNOMIAL ^ (crcreg >>> 1);
-                } else {
-                    crcreg >>>= 1;
-                }
-            }
-            crcTable[i] = crcreg;
-        }
-        return crcTable;
-    };
+        crcTable[i] = crc >>> 0;
+        crcReverseIndex[crc >>> 24] = i;
+    }
 
-    const crc32 = (input) => {
-        const table = ensureCRCTable();
+    const crc32State = (input) => {
         const text = typeof input === "string" ? input : String(input);
-        let crcstart = 0xffffffff;
+        let crc = 0xffffffff;
         for (let i = 0; i < text.length; i++) {
-            const index = (crcstart ^ text.charCodeAt(i)) & 0xff;
-            crcstart = (crcstart >>> 8) ^ table[index];
+            crc = (crc >>> 8) ^ crcTable[(crc ^ text.charCodeAt(i)) & 0xff];
         }
-        return crcstart;
+        return crc >>> 0;
     };
 
     const crc32LastIndex = (input) => {
-        const table = ensureCRCTable();
         const text = typeof input === "string" ? input : String(input);
-        let crcstart = 0xffffffff;
+        let crc = 0xffffffff;
         let index = 0;
         for (let i = 0; i < text.length; i++) {
-            index = (crcstart ^ text.charCodeAt(i)) & 0xff;
-            crcstart = (crcstart >>> 8) ^ table[index];
+            index = (crc ^ text.charCodeAt(i)) & 0xff;
+            crc = (crc >>> 8) ^ crcTable[index];
         }
         return index;
     };
 
-    const getCRCIndex = (t) => {
-        const table = ensureCRCTable();
-        for (let i = 0; i < 256; i++) {
-            if ((table[i] >>> 24) === t) {
-                return i;
-            }
+    const parseHash = (hash) => {
+        if (hash == null) {
+            return null;
         }
-        return -1;
-    };
-
-    const deepCheck = (i, index) => {
-        const table = ensureCRCTable();
-        let hash = crc32(i);
-        let tc = (hash & 0xff) ^ index[2];
-        if (tc < 48 || tc > 57) {
-            return [0];
-        }
-        let str = String(tc - 48);
-
-        hash = table[index[2]] ^ (hash >>> 8);
-        tc = (hash & 0xff) ^ index[1];
-        if (tc < 48 || tc > 57) {
-            return [0];
-        }
-        str += String(tc - 48);
-
-        hash = table[index[1]] ^ (hash >>> 8);
-        tc = (hash & 0xff) ^ index[0];
-        if (tc < 48 || tc > 57) {
-            return [0];
-        }
-        str += String(tc - 48);
-
-        return [1, str];
-    };
-
-    const normalizeHash = (hashStr) => {
-        if (hashStr == null) {
-            return "";
-        }
-        let normalized = String(hashStr).trim().toLowerCase();
-        if (normalized.startsWith("0x")) {
-            normalized = normalized.slice(2);
-        }
+        const normalized = String(hash).trim().toLowerCase().replace(/^0x/, "");
         if (!/^[0-9a-f]{1,8}$/.test(normalized)) {
-            return "";
+            return null;
         }
-        return normalized;
+        return parseInt(normalized, 16) >>> 0;
     };
+
+    const prepareReverseIndexes = (hash) => {
+        const parsedHash = parseHash(hash);
+        if (parsedHash == null) {
+            return null;
+        }
+        const indexes = new Int16Array(4);
+        let state = (parsedHash ^ 0xffffffff) >>> 0;
+        for (let offset = 0; offset < 4; offset++) {
+            const shift = (3 - offset) * 8;
+            const index = crcReverseIndex[state >>> shift];
+            if (index < 0) {
+                return null;
+            }
+            indexes[offset] = index;
+            state ^= crcTable[index] >>> (offset * 8);
+        }
+        return indexes;
+    };
+
+    const recoverSuffix = (prefix, indexes) => {
+        let state = crc32State(prefix);
+        let suffix = "";
+        for (let i = 2; i >= 0; i--) {
+            const charCode = (state & 0xff) ^ indexes[i];
+            if (charCode < 48 || charCode > 57) {
+                return null;
+            }
+            suffix += String.fromCharCode(charCode);
+            state = crcTable[indexes[i]] ^ (state >>> 8);
+        }
+        return suffix;
+    };
+
+    const tryPrefix = (prefix, indexes, targetHash) => {
+        const text = String(prefix);
+        if (text === "0") {
+            for (let mid = 0; mid < 1000; mid++) {
+                if (getHashValue(mid) === targetHash) {
+                    return {
+                        prefix: text,
+                        suffix: null,
+                        mid: String(mid),
+                        short: true,
+                    };
+                }
+            }
+            return { prefix: text, suffix: null, mid: null };
+        }
+        if (crc32LastIndex(text) !== indexes[3]) {
+            return { prefix: text, suffix: null, mid: null };
+        }
+        const suffix = recoverSuffix(text, indexes);
+        return {
+            prefix: text,
+            suffix,
+            mid: suffix == null ? null : `${text}${suffix}`,
+        };
+    };
+
+    const getHashValue = (mid) =>
+        (crc32State(String(mid)) ^ 0xffffffff) >>> 0;
 
     const midToHash = (mid) => {
         if (mid == null) {
@@ -104,58 +118,57 @@ const midHash = (() => {
         if (!input) {
             return "";
         }
-        const table = ensureCRCTable();
-        let crc = 0xffffffff;
-        for (let i = 0; i < input.length; i++) {
-            const byte = input.charCodeAt(i);
-            crc = (crc >>> 8) ^ table[(crc ^ byte) & 0xff];
-        }
-        return ((crc ^ 0xffffffff) >>> 0).toString(16);
+        return getHashValue(input).toString(16);
     };
 
-    const hashToMid = (hashStr, maxTry = 100_000_000) => {
-        const normalizedHash = normalizeHash(hashStr);
-        if (!normalizedHash) {
+    const hashToMid = (hash, maxTry = 100_000_000) => {
+        const parsedHash = parseHash(hash);
+        if (parsedHash == null) {
             return -1;
         }
-        const table = ensureCRCTable();
-        const limit =
-            Number.isFinite(maxTry) && maxTry > 0
-                ? Math.floor(maxTry)
-                : 100_000_000;
-        const index = new Array(4);
-        let ht = (parseInt(normalizedHash, 16) ^ 0xffffffff) >>> 0;
-        let snum;
-        let lastindex;
-        let deepCheckData;
-        let i;
-        for (i = 3; i >= 0; i--) {
-            index[3 - i] = getCRCIndex(ht >>> (i * 8));
-            if (index[3 - i] < 0) {
-                return -1;
-            }
-            snum = table[index[3 - i]];
-            ht ^= snum >>> ((3 - i) * 8);
+        const indexes = prepareReverseIndexes(hash);
+        if (!indexes) {
+            return -1;
         }
-        for (i = 0; i < limit; i++) {
-            lastindex = crc32LastIndex(i);
-            if (lastindex === index[3]) {
-                deepCheckData = deepCheck(i, index);
-                if (deepCheckData[0]) {
-                    break;
-                }
+        const limit = Number.isFinite(maxTry) && maxTry > 0
+            ? Math.floor(maxTry)
+            : 100_000_000;
+        for (let prefix = 0; prefix < limit; prefix++) {
+            const result = tryPrefix(prefix, indexes, parsedHash);
+            if (result.mid) {
+                return result.mid;
             }
         }
+        return -1;
+    };
 
-        if (i === limit || !deepCheckData?.[0]) {
-            return -1;
+    const walk = async (hash, getNextPrefix) => {
+        const parsedHash = parseHash(hash);
+        const indexes = prepareReverseIndexes(hash);
+        if (parsedHash == null || !indexes || typeof getNextPrefix !== "function") {
+            return null;
         }
-        return `${i}${deepCheckData[1]}`;
+        let result = null;
+        while (true) {
+            let nextPrefix = getNextPrefix(result);
+            if (nextPrefix && typeof nextPrefix.then === "function") {
+                nextPrefix = await nextPrefix;
+            }
+            if (nextPrefix == null) {
+                return result;
+            }
+            const prefix = String(nextPrefix).trim();
+            if (!/^\d+$/.test(prefix)) {
+                throw new TypeError("midHash prefix must be a non-negative integer");
+            }
+            result = tryPrefix(prefix, indexes, parsedHash);
+        }
     };
 
     return {
         midToHash,
         hashToMid,
+        walk,
     };
 })();
 
@@ -169,6 +182,22 @@ class BiliUserApi {
             params: { mid, photo },
             responseType: "json",
             desc: `获取用户名片信息 ${mid}`,
+        });
+        return res.data || {};
+    }
+    async getCards(uids) {
+        if (!Array.isArray(uids) || uids.length < 1 || uids.length > 50) {
+            throw new RangeError("uids length must be between 1 and 50");
+        }
+        const list = uids.map((uid) => String(uid).trim());
+        if (list.some((uid) => !/^\d+$/.test(uid))) {
+            throw new TypeError("uids must contain only non-negative integers");
+        }
+        const res = await this.client.request({
+            url: "https://api.bilibili.com/x/polymer/pc-electron/v1/user/cards",
+            params: { uids: list.join(",") },
+            responseType: "json",
+            desc: `批量获取用户名片 ${list.length} 个`,
         });
         return res.data || {};
     }
@@ -256,8 +285,8 @@ export class BiliUser {
     static hashToMid(hashStr, maxTry = 100_000_000) {
         return midHash.hashToMid(hashStr, maxTry);
     }
-    static getMidHash(mid) {
-        return this.midToHash(mid);
+    static walkMidHash(hashStr, getNextPrefix) {
+        return midHash.walk(hashStr, getNextPrefix);
     }
     constructor(ctx, mid) {
         this.ctx = ctx;
@@ -268,7 +297,7 @@ export class BiliUser {
         this.api = new BiliUserApi(this.client);
     }
     getMidHash() {
-        return this.constructor.getMidHash(this.mid);
+        return this.constructor.midToHash(this.mid);
     }
     async getCard(photo = true) {
         const mid = this.mid;
