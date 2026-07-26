@@ -1,7 +1,14 @@
 // webpack.config.js
 const path = require("path");
+const webpack = require("webpack");
 const TerserPlugin = require("terser-webpack-plugin");
 const ScriptCatWebpackPlugin = require("scriptcat-webpack-plugin");
+
+const { version } = require("./package.json");
+
+const defineVersion = new webpack.DefinePlugin({
+    BDM_VERSION: JSON.stringify(version),
+});
 
 const getlibConfig = (name, filename, optimization) => {
     return {
@@ -20,11 +27,12 @@ const getlibConfig = (name, filename, optimization) => {
         },
         optimization,
         plugins: [
+            defineVersion,
             new ScriptCatWebpackPlugin({
                 file: filename,
                 name: "BiliDataManager",
                 namespace: "https://github.com/ZBpine/bili-data-manager",
-                version: "1.3.3",
+                version,
                 description:
                     "BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。",
                 author: "ZBpine",

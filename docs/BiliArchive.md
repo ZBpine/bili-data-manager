@@ -97,7 +97,7 @@ arcMgr.setData(data);
 | info      | 含义                         | 视频                              | 番剧     | 课程         |动态|
 | --------- | --------------------------- | --------------------------------- | -------- | ----------- | ---------- |
 | id        | 稿件唯一id                   | video/BV□□□□ 或 video/BV□□□□?p=□  | bangumi/play/ep□□□□ 或 bangumi/play/ss□□□□ | cheese/play/ep□□□□ 或 cheese/play/ss□□□□ | □□□□□□□□ |
-| 其他      | 不同稿件特有属性              | bvid、p                           | ep_id、season_id        | ep_id、season_id |[dynamic_type](https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/dynamic/dynamic_enum.md) |
+| 其他      | 不同稿件特有属性              | bvid、p                           | ep_id、season_id        | ep_id、season_id |[dynamic_type](https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/dynamic/dynamic_enum.md)、rid |
 | title     | 标题                         | 视频标题                          | 剧名      |课程名       |❌|
 | subtitle  | 副标题                       | 第 □ P：分P名 (普通视频没有)       | 节名：集名 |节名：集名   |❌|
 | desc      | 简介                         |✅|✅|✅|❌|
@@ -106,12 +106,12 @@ arcMgr.setData(data);
 | oid       | 评论区oid，评论相关要用       |✅|✅|✅|✅|
 | type      | 评论区type，评论相关要用      |✅|✅|✅|✅|
 | url       | 稿件链接                     |✅|✅|✅|✅|
-| cover     | 视频封面链接                 |✅|✅|✅|❌|
+| cover     | 视频封面链接                 |✅|✅|✅|仅专栏|
 | duration  | 视频时长(单位：秒)           |✅|✅|✅|❌|
 | pubtime   | 稿件发布时间（时间戳，秒）    |✅|✅|✅|✅|
 | owner     | 上传者（对象，具体见下）      |✅|✅|✅|✅|
 | staff     | 合作作者（数组，具体见下）    |✅|✅|✅|❌|
-| stat      | 数据统计（对象，具体见下）    |✅|✅|无评论数|仅点赞、分享、评论数|
+| stat      | 数据统计（对象，具体见下）    |✅|✅|无评论数|观看/投币数仅专栏，收藏数仅图文/专栏，无弹幕数|
 | fetchtime | 本脚本抓取时间（时间戳，秒）  |✅|✅|✅|✅|
 
 > 打勾✅并不意味者一定存在，比如非合作视频没有staff，番剧与课程只有季信息时没有aid/cid/oid等等。

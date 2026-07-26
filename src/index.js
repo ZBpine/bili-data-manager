@@ -8,6 +8,8 @@ import { BiliUser } from "./BiliUser.js";
 import { handler } from "./handlers/handler.js";
 import { createDefaultHttpRequest } from "./httpRequest.js";
 
+const version = typeof BDM_VERSION !== "undefined" ? BDM_VERSION : "0.0.0";
+
 function create(config) {
     let { name, httpRequest, handlers, isLog, loggerColor } = config || {};
     name = name || "BiliDataManager";
@@ -68,6 +70,7 @@ function create(config) {
 
     return {
         name,
+        version,
         client,
         logger,
         changeColor: (color) => (loggerColor = color),
@@ -78,4 +81,4 @@ function create(config) {
     };
 }
 
-export { BiliClient, BiliArchive, BiliDanmaku, BiliComment, BiliUser, handler, create };
+export { BiliClient, BiliArchive, BiliDanmaku, BiliComment, BiliUser, handler, create, version };
