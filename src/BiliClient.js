@@ -4,10 +4,16 @@ const md5 = require("blueimp-md5");
 
 export class BiliClient {
     constructor(httpRequest, logger) {
+        const userAgent =
+            typeof navigator !== "undefined" && navigator?.userAgent
+                ? navigator.userAgent
+                : "";
         this.headers = {
-            "User-Agent": navigator.userAgent,
             Referer: "https://www.bilibili.com/",
         };
+        if (userAgent) {
+            this.headers["User-Agent"] = userAgent;
+        }
         this.wbiKey = "";
         this.buvid3 = "";
         this.httpRequest = httpRequest;

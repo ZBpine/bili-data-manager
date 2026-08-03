@@ -38,6 +38,7 @@ await client.request({url, params, ...});
 | params       | Object  | 请求参数                |
 | responseType | String  | [返回类型](https://www.tampermonkey.net/documentation.php#api:GM_xmlhttpRequest) 默认'json'             |
 | sign         | Boolean | 是否[wbi签名](https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md) |
+| data         | Any     | 可选，请求体；POST/PUT 等非 GET 请求会由适配器传给 `fetch` / `GM_xmlhttpRequest` |
 | desc         | String  | 用于logger输出附带说明   |
 
 
@@ -57,7 +58,7 @@ BiliClient 期望的 `httpRequest` 包含：
     response需按responseType自动转换结果，至少能处理：
     - text
     - json
-    - document
+    - document（浏览器中返回 `Document`；没有 `DOMParser` 时返回原始文本）
     - arraybuffer
 
 `create` 未传 `httpRequest` 时，库会自动使用一个基于 `fetch` 的默认适配器，接口签名与上面保持一致。
@@ -67,3 +68,4 @@ BiliClient 期望的 `httpRequest` 包含：
 - 无法绕过浏览器 CORS。
 - 无法手动设置 `User-Agent` / `Referer` / `Cookie` 等受限请求头。
 - Cookie 依赖 `credentials: "include"` 与当前站点策略。
+- 在 Node.js 等非浏览器环境中需要提供全局 `fetch`；`document` 响应类型会退回为 XML/HTML 原始文本。

@@ -91,7 +91,7 @@ export class BiliArchive {
             return this.info;
         } catch (e) {
             this.logger.error("BiliArchive getData error:", e);
-            return null;
+            throw e;
         }
     }
     setData(data) {
@@ -104,7 +104,7 @@ export class BiliArchive {
             return this.info;
         } catch (e) {
             this.logger.error("BiliArchive setData error:", e);
-            return null;
+            throw e;
         }
     }
     async getPlayerInfo() {

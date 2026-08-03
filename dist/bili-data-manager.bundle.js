@@ -2,7 +2,7 @@
 // @name        BiliDataManager
 // @namespace   https://github.com/ZBpine/bili-data-manager
 // @description BiliDataManager 是一个 Bilibili 数据管理工具库，旨在为开发者提供简洁的接口来抓取和处理 Bilibili 的各种数据。
-// @version     1.3.4
+// @version     1.3.5
 // @author      ZBpine
 // @icon        https://www.bilibili.com/favicon.ico
 // @license     MIT
@@ -2558,10 +2558,13 @@
         const md5 = __webpack_require__(922);
         class BiliClient {
             constructor(httpRequest, logger) {
+                const userAgent = typeof navigator !== "undefined" && navigator?.userAgent ? navigator.userAgent : "";
                 this.headers = {
-                    "User-Agent": navigator.userAgent,
                     Referer: "https://www.bilibili.com/"
                 };
+                if (userAgent) {
+                    this.headers["User-Agent"] = userAgent;
+                }
                 this.wbiKey = "";
                 this.buvid3 = "";
                 this.httpRequest = httpRequest;
@@ -3589,7 +3592,7 @@
                     return this.info;
                 } catch (e) {
                     this.logger.error("BiliArchive getData error:", e);
-                    return null;
+                    throw e;
                 }
             }
             setData(data) {
@@ -3602,7 +3605,7 @@
                     return this.info;
                 } catch (e) {
                     this.logger.error("BiliArchive setData error:", e);
-                    return null;
+                    throw e;
                 }
             }
             async getPlayerInfo() {
@@ -8115,7 +8118,11 @@
                     const text = await res.text();
                     const contentType = (res.headers.get("content-type") || "").toLowerCase();
                     const mimeType = contentType.includes("xml") ? "text/xml" : "text/html";
-                    return (new DOMParser).parseFromString(text, mimeType);
+                    const DomParser = typeof globalThis !== "undefined" ? globalThis.DOMParser : undefined;
+                    // Node.js and other non-browser runtimes may not provide DOMParser.
+                    // Returning the raw text keeps the adapter usable; BiliDanmaku.parseXml
+                    // already accepts both a Document and an XML string.
+                                        return typeof DomParser === "function" ? (new DomParser).parseFromString(text, mimeType) : text;
                 }
                 if (responseType === "text") {
                     return await res.text();
@@ -8131,7 +8138,7 @@
                 return await res.text();
             };
             return async function httpRequest(options) {
-                const {method = "GET", url, headers = {}, responseType = "json", onload = () => {}, onerror = () => {}} = options || {};
+                const {method = "GET", url, headers = {}, data = null, responseType = "json", onload = () => {}, onerror = () => {}} = options || {};
                 const requestHeaders = {};
                 Object.entries(headers || {}).forEach(([key, value]) => {
                     if (value == null) {
@@ -8144,11 +8151,15 @@
                     requestHeaders[key] = value;
                 });
                 try {
-                    const res = await fetch(url, {
+                    const requestInit = {
                         method,
                         headers: requestHeaders,
                         credentials: "include"
-                    });
+                    };
+                    if (data !== null && data !== undefined && ![ "GET", "HEAD" ].includes(method.toUpperCase())) {
+                        requestInit.body = data;
+                    }
+                    const res = await fetch(url, requestInit);
                     const response = await parseResponse(res, responseType);
                     let responseText = "";
                     if (typeof response === "string") {
@@ -8169,7 +8180,7 @@
         }
         // ./src/index.js
         // src/index.js
-        const version = true ? "1.3.4" : 0;
+        const version = true ? "1.3.5" : 0;
         function create(config) {
             let {name, httpRequest, handlers, isLog, loggerColor} = config || {};
             name = name || "BiliDataManager";

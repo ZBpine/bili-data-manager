@@ -18,7 +18,14 @@ export function createDefaultHttpRequest(logger) {
             const text = await res.text();
             const contentType = (res.headers.get("content-type") || "").toLowerCase();
             const mimeType = contentType.includes("xml") ? "text/xml" : "text/html";
-            return new DOMParser().parseFromString(text, mimeType);
+            const DomParser =
+                typeof globalThis !== "undefined" ? globalThis.DOMParser : undefined;
+            // Node.js and other non-browser runtimes may not provide DOMParser.
+            // Returning the raw text keeps the adapter usable; BiliDanmaku.parseXml
+            // already accepts both a Document and an XML string.
+            return typeof DomParser === "function"
+                ? new DomParser().parseFromString(text, mimeType)
+                : text;
         }
         if (responseType === "text") {
             return await res.text();
@@ -39,6 +46,7 @@ export function createDefaultHttpRequest(logger) {
             method = "GET",
             url,
             headers = {},
+            data = null,
             responseType = "json",
             onload = () => {},
             onerror = () => {},
@@ -57,11 +65,15 @@ export function createDefaultHttpRequest(logger) {
         });
 
         try {
-            const res = await fetch(url, {
+            const requestInit = {
                 method,
                 headers: requestHeaders,
                 credentials: "include",
-            });
+            };
+            if (data !== null && data !== undefined && !["GET", "HEAD"].includes(method.toUpperCase())) {
+                requestInit.body = data;
+            }
+            const res = await fetch(url, requestInit);
             const response = await parseResponse(res, responseType);
             let responseText = "";
             if (typeof response === "string") {
